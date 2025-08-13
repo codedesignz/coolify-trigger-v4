@@ -1,0 +1,77 @@
+version: "3.8"
+
+# Trigger v4 Worker (supervisor + docker-socket-proxy)
+# - TRIGGER_WORKER_TOKEN: Pónlo como variable en Coolify (pegado desde los logs del Webapp).
+# - No usa volúmenes compartidos ni puertos públicos.
+
+services:
+  supervisor:
+    image: ghcr.io/triggerdotdev/supervisor:${TRIGGER_IMAGE_TAG:-v4.0.0-v4-beta.27}
+    restart: unless-stopped
+    depends_on:
+      - docker-proxy
+    environment:
+      # ---- Requeridos (según doc supervisor) ----
+      TRIGGER_API_URL: ${TRIGGER_API_URL}                     # ej: https://trigger.tu-dominio.com
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}  # ej: https://trigger.tu-dominio.com/otel
+      TRIGGER_WORKER_TOKEN: ${TRIGGER_WORKER_TOKEN}           # <-- pega aquí el token del webapp
+      MANAGED_WORKER_SECRET: ${MANAGED_WORKER_SECRET}         # = al del Webapp
+
+      # ---- Workload API interno (runners) ----
+      TRIGGER_WORKLOAD_API_DOMAIN: supervisor
+      TRIGGER_WORKLOAD_API_PORT_EXTERNAL: 8020
+
+      # ---- Docker runner / registry ----
+      DOCKER_HOST: tcp://docker-proxy:2375
+      DOCKER_RUNNER_NETWORKS: supervisor
+      DOCKER_AUTOREMOVE_EXITED_CONTAINERS: 0
+      # Si tus imágenes de runs están en registry privado:
+      DOCKER_REGISTRY_URL: ${DOCKER_REGISTRY_URL}             # ej: registry.tu-dominio.com:5000
+      DOCKER_REGISTRY_USERNAME: ${DOCKER_REGISTRY_USERNAME}
+      DOCKER_REGISTRY_PASSWORD: ${DOCKER_REGISTRY_PASSWORD}
+
+      # ---- Opcionales ----
+      DEBUG: 1
+      ENFORCE_MACHINE_PRESETS: 1
+      TRIGGER_DEQUEUE_INTERVAL_MS: 1000
+
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - '-e'
+        - "require('http').get('http://127.0.0.1:8020/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - supervisor
+      - docker-proxy
+
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:${DOCKER_PROXY_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      LOG_LEVEL: info
+      POST: 1
+      CONTAINERS: 1
+      IMAGES: 1
+      INFO: 1
+      NETWORKS: 1
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "2375"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - docker-proxy
+
+networks:
+  supervisor:
+    name: supervisor
+  docker-proxy:
+    name: docker-proxy

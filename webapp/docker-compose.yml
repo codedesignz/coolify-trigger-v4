@@ -1,9 +1,8 @@
 version: "3.8"
 
-# Trigger v4 - Webapp (Coolify + Traefik). Servidor: Tn-Trigger
-# - Expuesto vía SERVICE_FQDN_WEBAPP_3000 (Coolify)
-# - Registry externo (Tn-Registry): configurar DEPLOY_REGISTRY_* en la UI de Coolify
-# - Split deployment: Bootstrap desactivado y sin volumen "shared"
+# Trigger v4 Webapp (split): expuesto por Traefik de Coolify (sin ports)
+# Incluye Postgres, Redis, Electric, ClickHouse y MinIO como en la plantilla oficial v4.
+# Secrets generados automáticamente por Coolify (SERVICE_PASSWORD_64_*).
 
 services:
   webapp:
@@ -28,53 +27,50 @@ services:
       - LOGIN_ORIGIN=${SERVICE_FQDN_WEBAPP_3000}
       - API_ORIGIN=${SERVICE_FQDN_WEBAPP_3000}
 
-      # ---- Realtime / Electric ----
-      - ELECTRIC_ORIGIN=http://electric:3000
+      # ---- Secrets (autogenerados por Coolify) ----
+      - SESSION_SECRET=${SERVICE_PASSWORD_64_SESSION}
+      - MAGIC_LINK_SECRET=${SERVICE_PASSWORD_64_MAGIC}
+      - ENCRYPTION_KEY=${SERVICE_PASSWORD_64_ENCRYPTION}
+      - MANAGED_WORKER_SECRET=${SERVICE_PASSWORD_64_MANAGED_WORKER}
 
       # ---- Postgres ----
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/main?schema=public&sslmode=disable}
-      - DIRECT_URL=${DIRECT_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/main?schema=public&sslmode=disable}
-
-      # ---- Secrets obligatorios ----
-      - SESSION_SECRET=${SESSION_SECRET}
-      - MAGIC_LINK_SECRET=${MAGIC_LINK_SECRET}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-
-      # ---- Worker management (debe coincidir con el worker) ----
-      - MANAGED_WORKER_SECRET=${MANAGED_WORKER_SECRET}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/main?schema=public&sslmode=disable}
+      - DIRECT_URL=${DIRECT_URL:-postgresql://postgres:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/main?schema=public&sslmode=disable}
 
       # ---- Redis ----
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_TLS_DISABLED=true
 
-      # ---- OTEL para runs de dev ----
+      # ---- Electric (Realtime) ----
+      - ELECTRIC_ORIGIN=http://electric:3000
+
+      # ---- OTEL (dev) ----
       - DEV_OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_FQDN_WEBAPP_3000}/otel
 
-      # ---- Registry externo (Tn-Registry) para deploys ----
+      # ---- Registry externo (Tn-Registry) ----
       - DEPLOY_REGISTRY_HOST=${DEPLOY_REGISTRY_HOST}           # ej: https://registry.tu-dominio.com:5000
       - DEPLOY_REGISTRY_NAMESPACE=${DEPLOY_REGISTRY_NAMESPACE:-trigger}
       - DEPLOY_REGISTRY_USERNAME=${DEPLOY_REGISTRY_USERNAME}
       - DEPLOY_REGISTRY_PASSWORD=${DEPLOY_REGISTRY_PASSWORD}
-      # - DEPLOY_IMAGE_PLATFORM=linux/amd64                      # si necesitas forzar plataforma
+      # - DEPLOY_IMAGE_PLATFORM=linux/amd64
 
-      # ---- Object Store (MinIO interno) ----
+      # ---- Object Store (MinIO interno por defecto) ----
       - OBJECT_STORE_BASE_URL=${OBJECT_STORE_BASE_URL:-http://minio:9000}
       - OBJECT_STORE_ACCESS_KEY_ID=${OBJECT_STORE_ACCESS_KEY_ID:-admin}
-      - OBJECT_STORE_SECRET_ACCESS_KEY=${OBJECT_STORE_SECRET_ACCESS_KEY:-very-safe-password}
+      - OBJECT_STORE_SECRET_ACCESS_KEY=${OBJECT_STORE_SECRET_ACCESS_KEY:-${SERVICE_PASSWORD_64_MINIO}}
 
-      # ---- Bootstrap: desactivado en split deployment ----
+      # ---- Bootstrap desactivado en split ----
       - TRIGGER_BOOTSTRAP_ENABLED=0
-      # (No definas TRIGGER_BOOTSTRAP_*_TOKEN_PATH en split)
 
-      # ---- ClickHouse / Run replication (según plantilla v4) ----
-      - CLICKHOUSE_URL=${CLICKHOUSE_URL:-http://default:password@clickhouse:8123?secure=false}
+      # ---- ClickHouse / Replicación (como en plantilla oficial) ----
+      - CLICKHOUSE_URL=${CLICKHOUSE_URL:-http://default:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123?secure=false}
       - CLICKHOUSE_LOG_LEVEL=${CLICKHOUSE_LOG_LEVEL:-info}
       - RUN_REPLICATION_ENABLED=${RUN_REPLICATION_ENABLED:-1}
-      - RUN_REPLICATION_CLICKHOUSE_URL=${RUN_REPLICATION_CLICKHOUSE_URL:-http://default:password@clickhouse:8123}
+      - RUN_REPLICATION_CLICKHOUSE_URL=${RUN_REPLICATION_CLICKHOUSE_URL:-http://default:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123}
       - RUN_REPLICATION_LOG_LEVEL=${RUN_REPLICATION_LOG_LEVEL:-info}
 
-      # ---- Varias (opcional) ----
+      # ---- Otros (opcionales) ----
       - APP_LOG_LEVEL=info
       # - TRIGGER_TELEMETRY_DISABLED=1
       # - NODE_MAX_OLD_SPACE_SIZE=4096
@@ -96,7 +92,7 @@ services:
     command: ["-c", "wal_level=logical"] # requerido por Electric
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
     volumes:
       - postgres:/var/lib/postgresql/data/
@@ -126,7 +122,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/main?schema=public&sslmode=disable}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/main?schema=public&sslmode=disable}
       ELECTRIC_INSECURE: "true"
       ELECTRIC_USAGE_REPORTING: "false"
     healthcheck:
@@ -141,13 +137,11 @@ services:
     restart: unless-stopped
     environment:
       CLICKHOUSE_ADMIN_USER: ${CLICKHOUSE_USER:-default}
-      CLICKHOUSE_ADMIN_PASSWORD: ${CLICKHOUSE_PASSWORD:-password}
+      CLICKHOUSE_ADMIN_PASSWORD: ${SERVICE_PASSWORD_64_CLICKHOUSE}
     volumes:
       - clickhouse:/bitnami/clickhouse
-      # Si tienes la config override.xml en tu repo, descomenta la siguiente línea:
-      # - ./clickhouse/override.xml:/bitnami/clickhouse/etc/config.d/override.xml:ro
     healthcheck:
-      test: ["CMD", "bash", "-lc", "clickhouse-client --host localhost --port 9000 --user ${CLICKHOUSE_USER:-default} --password ${CLICKHOUSE_PASSWORD:-password} --query 'SELECT 1'"]
+      test: ["CMD", "bash", "-lc", "clickhouse-client --host localhost --port 9000 --user ${CLICKHOUSE_USER:-default} --password ${SERVICE_PASSWORD_64_CLICKHOUSE} --query 'SELECT 1'"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -158,10 +152,10 @@ services:
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-very-safe-password}
+      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO}
       MINIO_DEFAULT_BUCKETS: packets
       MINIO_BROWSER: "on"
-      # Para ver la consola de MinIO detrás de Traefik, descomenta:
+      # Para exponer la consola vía Traefik:
       # - SERVICE_FQDN_MINIO_9001
     volumes:
       - minio:/bitnami/minio/data
