@@ -1,6 +1,6 @@
 # Trigger v4 Webapp (split): expuesto por Traefik de Coolify (sin ports)
 # Incluye Postgres, Redis, Electric, ClickHouse y MinIO como en la plantilla oficial v4.
-# Secrets generados automáticamente por Coolify (SERVICE_PASSWORD_64_*).
+# Secrets generados automáticamente por Coolify (SERVICE_PASSWORD_32_*).
 
 services:
   webapp:
@@ -30,10 +30,10 @@ services:
       - API_ORIGIN=${SERVICE_FQDN_WEBAPP_3000}
 
       # ---- Secrets (Magic Vars de Coolify) ----
-      - SESSION_SECRET=${SERVICE_PASSWORD_64_SESSION}
-      - MAGIC_LINK_SECRET=${SERVICE_PASSWORD_64_MAGIC}
-      - ENCRYPTION_KEY=${SERVICE_PASSWORD_64_ENCRYPTION}
-      - MANAGED_WORKER_SECRET=${SERVICE_PASSWORD_64_MANAGEDWORKER}
+      - SESSION_SECRET=${SERVICE_PASSWORD_32_SESSION}
+      - MAGIC_LINK_SECRET=${SERVICE_PASSWORD_32_MAGIC}
+      - ENCRYPTION_KEY=${SERVICE_PASSWORD_32_ENCRYPTION}
+      - MANAGED_WORKER_SECRET=${SERVICE_PASSWORD_32_MANAGEDWORKER}
 
       # ---- Postgres ----
       - DATABASE_URL=postgresql://${SERVICE_USER_POSTGRES:-postgres}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-trigger}?schema=public&sslmode=disable
@@ -60,7 +60,7 @@ services:
       # ---- Object Store (MinIO interno por defecto) ----
       - OBJECT_STORE_BASE_URL=http://minio:9000
       - OBJECT_STORE_ACCESS_KEY_ID=admin
-      - OBJECT_STORE_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_64_MINIO}
+      - OBJECT_STORE_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_32_MINIO}
 
       # ---- Bootstrap desactivado (split) ----
       - TRIGGER_BOOTSTRAP_ENABLED=1
@@ -68,10 +68,10 @@ services:
       - TRIGGER_BOOTSTRAP_WORKER_TOKEN_PATH=/home/node/shared/worker_token
 
       # ---- ClickHouse / Replicación ----
-      - CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123?secure=false
+      - CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_32_CLICKHOUSE}@clickhouse:8123?secure=false
       - CLICKHOUSE_LOG_LEVEL=info
       - RUN_REPLICATION_ENABLED=1
-      - RUN_REPLICATION_CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123
+      - RUN_REPLICATION_CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_32_CLICKHOUSE}@clickhouse:8123
       - RUN_REPLICATION_LOG_LEVEL=info
 
       - APP_LOG_LEVEL=info
@@ -141,11 +141,11 @@ services:
     restart: unless-stopped
     environment:
       CLICKHOUSE_ADMIN_USER: ${SERVICE_USER_CLICKHOUSE:-default}
-      CLICKHOUSE_ADMIN_PASSWORD: ${SERVICE_PASSWORD_64_CLICKHOUSE}
+      CLICKHOUSE_ADMIN_PASSWORD: ${SERVICE_PASSWORD_32_CLICKHOUSE}
     volumes:
       - 'clickhouse-data:/bitnami/clickhouse'
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--host", "localhost", "--port", "9000", "--user", "${SERVICE_USER_CLICKHOUSE:-default}", "--password", "${SERVICE_PASSWORD_64_CLICKHOUSE}", "--query", "SELECT 1"]
+      test: ["CMD", "clickhouse-client", "--host", "localhost", "--port", "9000", "--user", "${SERVICE_USER_CLICKHOUSE:-default}", "--password", "${SERVICE_PASSWORD_32_CLICKHOUSE}", "--query", "SELECT 1"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -156,7 +156,7 @@ services:
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO}
+      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_32_MINIO}
       MINIO_DEFAULT_BUCKETS: packets
       MINIO_BROWSER: "on"
       # Para exponer la consola vía Traefik de Coolify, podrías añadir:

@@ -2,7 +2,7 @@
 
 Este README explica cómo desplegar **Trigger v4** usando **Coolify v4** con **Traefik**, separando la **Webapp** (servidor `Tn-Trigger`) y el **Worker/Supervisor** (servidor `Tn-Trigger-Worker1`). Además, se contempla un **Registry externo** ya existente (`Tn-Registry`).
 
-> Probado con la plantilla oficial `trigger.dev@4.0.0-v4-beta.27` de Docker Compose como base y adaptado para Coolify (sin `ports:` y aprovechando **Magic Env Vars** como `SERVICE_FQDN_*` y `SERVICE_PASSWORD_64_*`).
+> Probado con la plantilla oficial `trigger.dev@4.0.0-v4-beta.27` de Docker Compose como base y adaptado para Coolify (sin `ports:` y aprovechando **Magic Env Vars** como `SERVICE_FQDN_*` y `SERVICE_PASSWORD_32_*`).
 
 ---
 
@@ -28,7 +28,7 @@ Este README explica cómo desplegar **Trigger v4** usando **Coolify v4** con **T
 
 1. **Crear recurso “Docker Compose (Raw)”** en Coolify para la **Webapp** (servidor `Tn-Trigger`), pega el YAML de **`webapp`** más abajo.
 2. En **Environment** del recurso de la webapp:
-   - Genera secretos con Magic Vars (`SERVICE_PASSWORD_64_*`) o pega tus propios valores.
+   - Genera secretos con Magic Vars (`SERVICE_PASSWORD_32_*`) o pega tus propios valores.
    - Rellena las credenciales del **Registry externo** (`DEPLOY_REGISTRY_*`) si vas a usar deploys desde la Webapp.
 3. **Deploy** Webapp y configura el **dominio** generado por `SERVICE_FQDN_WEBAPP_3000` como `APP_ORIGIN/LOGIN_ORIGIN/API_ORIGIN` (ya viene en el YAML).
 4. En la Webapp, crea un **Worker Group** y genera un **token** (se muestra una vez). Copia el token.
@@ -43,7 +43,7 @@ Este README explica cómo desplegar **Trigger v4** usando **Coolify v4** con **T
 
 ## 🔐 Secretos con **Magic Env Vars** (Coolify)
 
-- Usa `SERVICE_PASSWORD_64_SESSION`, `SERVICE_PASSWORD_64_MAGIC`, `SERVICE_PASSWORD_64_ENCRYPTION`, `SERVICE_PASSWORD_64_MANAGED_WORKER`, `SERVICE_PASSWORD_64_POSTGRES`, `SERVICE_PASSWORD_64_MINIO`, `SERVICE_PASSWORD_64_CLICKHOUSE`, etc.
+- Usa `SERVICE_PASSWORD_32_SESSION`, `SERVICE_PASSWORD_32_MAGIC`, `SERVICE_PASSWORD_32_ENCRYPTION`, `SERVICE_PASSWORD_32_MANAGEDWORKER`, `SERVICE_PASSWORD_POSTGRES`, `SERVICE_PASSWORD_32_MINIO`, `SERVICE_PASSWORD_32_CLICKHOUSE`, etc.
 - Coolify los genera una vez por recurso y **mantiene** el mismo valor entre despliegues (útil para que no se invaliden sesiones/tokens sin querer).
 - Puedes sustituirlos por valores propios si lo prefieres.
 
