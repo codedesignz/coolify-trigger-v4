@@ -1,163 +1,83 @@
-# Trigger v4 (4.0.0) en Coolify v4 con Traefik — **Split** Webapp & Worker
+# Trigger v4 (4.0.0) on Coolify v4 with Traefik — **Split** Webapp & Worker
 
-Este README explica cómo desplegar **Trigger v4** usando **Coolify v4** con **Traefik**, separando la **Webapp** (servidor `Tn-Trigger`) y el **Worker/Supervisor** (servidor `Tn-Trigger-Worker1`). Además, se contempla un **Registry externo** ya existente (`Tn-Registry`).
+This README explains how to deploy **Trigger v4** using **Coolify v4** with **Traefik**, separating the **Webapp** and the **Worker/Supervisor**. It also considers an existing **External Docker Registry**.
 
-> Probado con la plantilla oficial `trigger.dev@4.0.0` de Docker Compose como base y adaptado para Coolify (sin `ports:` y aprovechando **Magic Env Vars** como `SERVICE_FQDN_*` y `SERVICE_PASSWORD_*`).
-
----
-
-## 🧱 Requisitos previos
-
-- **Coolify v4** con **Traefik** activo.
-- Servidor `Srv-Trigger` (Webapp) y `Srv-Trigger-Worker1` (Worker) añadidos en Coolify y **Healthy**.
-- **DNS** apuntando al servidor de `Srv-Trigger` (para el dominio de la Webapp).
-- **Docker Registry externo** operativo (`Srv-Registry`), con credenciales.
-- (Opcional) Dominio wildcard en Coolify para FQDNs automáticos.
+> Tested with the official `trigger.dev@4.0.0` Docker Compose template as base and adapted for Coolify (without `ports:` and leveraging **Magic Env Vars** like `SERVICE_FQDN_*` and `SERVICE_PASSWORD_*`).
 
 ---
 
-## 🚀 Resumen de la arquitectura
+## 🧱 Prerequisites
 
-- **Webapp**: se expone a Internet vía Traefik de Coolify. Gestiona UI, API, tokens de grupos de workers, etc.
-- **Worker (Supervisor)**: **no** expuesto públicamente. Se conecta **saliente** a la Webapp por HTTPS (`TRIGGER_API_URL`) y ejecuta cargas en contenedores efímeros mediante Docker.
-- **Servicios internos de la Webapp**: Postgres, Redis, ElectricSQL (Realtime), ClickHouse (métricas), MinIO (object storage) — mismos que en el Compose oficial.
-
----
-
-## 🧩 Pasos rápidos
-
-1. **Crear recurso “Docker Compose (Raw)”** en Coolify para la **Webapp** (servidor `Tn-Trigger`), pega el YAML de **`webapp`** más abajo.
-2. En **Environment** del recurso de la webapp:
-   - Genera secretos con Magic Vars (`SERVICE_PASSWORD_*`) o pega tus propios valores.
-   - Rellena las credenciales del **Registry externo** (`DEPLOY_REGISTRY_*`) si vas a usar deploys desde la Webapp.
-3. **Deploy** Webapp y configura el **dominio** generado por `SERVICE_FQDN_WEBAPP_3000` como `APP_ORIGIN/LOGIN_ORIGIN/API_ORIGIN` (ya viene en el YAML).
-4. En la Webapp, crea un **Worker Group** y genera un **token** (se muestra una vez). Copia el token.
-5. Crea un recurso **Docker Compose (Raw)** para el **Worker** (servidor `Tn-Trigger-Worker1`), pega el YAML de **`worker`** más abajo y en Environment establece:
-   - `TRIGGER_API_URL=https://tu-dominio-de-la-webapp`
-   - `OTEL_EXPORTER_OTLP_ENDPOINT=https://tu-dominio-de-la-webapp/otel`
-   - `TRIGGER_WORKER_TOKEN=<token-copiado>`
-   - `MANAGED_WORKER_SECRET=<igual que en la Webapp>`
-6. **Deploy** Worker. Verifica en la Webapp que el worker aparece como **online**.
+- **Coolify v4** with **Traefik** active.
+- Server (Webapp) and (Worker) added in Coolify and **Healthy**.
+- **DNS** pointing to the Webapp server (for the Webapp domain).
+- **External Docker Registry** operational, with credentials.
+- (Optional) Wildcard domain in Coolify for automatic FQDNs.
 
 ---
 
-## 🔐 Secretos con **Magic Env Vars** (Coolify)
+## 🚀 Architecture Overview
 
-- Usa `SERVICE_PASSWORD_SESSION`, `SERVICE_PASSWORD_MAGIC`, `SERVICE_PASSWORD_ENCRYPTION`, `SERVICE_PASSWORD_MANAGEDWORKER`, `SERVICE_PASSWORD_POSTGRES`, `SERVICE_PASSWORD_MINIO`, `SERVICE_PASSWORD_CLICKHOUSE`, etc.
-- Coolify los genera una vez por recurso y **mantiene** el mismo valor entre despliegues (útil para que no se invaliden sesiones/tokens sin querer).
-- Puedes sustituirlos por valores propios si lo prefieres.
-
----
-
-## 🧪 Comprobaciones rápidas
-
-- **Webapp**: abre `https://<tu-FQDN>` → crea la cuenta inicial → ve a **Workers** → crea un **Worker Group** y **token**.
-- **Worker**: tras el deploy, en la Webapp debería aparecer como **online** en su grupo.
-- **Logs**: si el Worker no conecta, revisa `TRIGGER_API_URL`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `TRIGGER_WORKER_TOKEN` y que el server tiene salida a Internet.
+- **Webapp**: exposed to Internet via Coolify's Traefik. Manages UI, API, worker group tokens, etc.
+- **Worker (Supervisor)**: **not** publicly exposed. Connects **outbound** to the Webapp via HTTPS (`TRIGGER_API_URL`) and executes workloads in ephemeral containers via Docker.
+- **Webapp internal services**: Postgres, Redis, ElectricSQL (Realtime), ClickHouse (metrics), MinIO (object storage) — same as in the official Compose.
 
 ---
 
-## 🧰 `env.example` por stack
+## 🧩 Quick Steps
 
-Guárdalos para referencia si desplegarás desde Git; en **Raw Compose** de Coolify no son necesarios, ya que las variables se definen en la UI.
+1. **Create "Docker Compose (Raw)" resource** in Coolify for the **Webapp**, paste the **`webapp`** YAML below.
+2. In the webapp resource **Environment**:
+   - Generate secrets with Magic Vars (`SERVICE_PASSWORD_*`) or paste your own values.
+   - Fill in **External Registry** credentials (`DEPLOY_REGISTRY_*`) if you'll use deploys from the Webapp.
+3. **Deploy** Webapp and configure the **domain** generated by `SERVICE_FQDN_WEBAPP_3000` as `APP_ORIGIN/LOGIN_ORIGIN/API_ORIGIN` (already in the YAML).
+4. In the Webapp log, check for the `TRIGGER_WORKER_TOKEN` (shown once). Copy the token.
+5. Create a **Docker Compose (Raw)** resource for the **Worker**, paste the **`worker`** YAML below and set in Environment:
+   - `TRIGGER_API_URL=https://your-webapp-domain`
+   - `OTEL_EXPORTER_OTLP_ENDPOINT=https://your-webapp-domain/otel`
+   - `TRIGGER_WORKER_TOKEN=<copied-token>`
+   - `MANAGED_WORKER_SECRET=<same as in Webapp>`
+6. **Deploy** Worker. Verify in the Webapp that the worker appears as **online**.
 
-### `.env.webapp.example`
+---
 
-```env
-# --- Versiones ---
-TRIGGER_IMAGE_TAG=v4.0.0
-POSTGRES_IMAGE_TAG=14
-REDIS_IMAGE_TAG=7
-ELECTRIC_IMAGE_TAG=1.0.24
-CLICKHOUSE_IMAGE_TAG=latest
-MINIO_IMAGE_TAG=latest
+## 🔐 Secrets with **Magic Env Vars** (Coolify)
 
-# --- Secrets (si no usas Magic Vars de Coolify) ---
-SESSION_SECRET=
-MAGIC_LINK_SECRET=
-ENCRYPTION_KEY=
-MANAGED_WORKER_SECRET=
+- Use `SERVICE_PASSWORD_SESSION`, `SERVICE_PASSWORD_MAGIC`, `SERVICE_PASSWORD_ENCRYPTION`, `SERVICE_PASSWORD_MANAGEDWORKER`, `SERVICE_PASSWORD_POSTGRES`, `SERVICE_PASSWORD_MINIO`, `SERVICE_PASSWORD_64_CLICKHOUSE`, etc.
+- Coolify generates them once per resource and **maintains** the same value between deployments (useful so sessions/tokens don't get invalidated accidentally).
+- You can substitute them with your own values if you prefer.
 
-# --- Postgres ---
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=
-POSTGRES_DB=postgres
-DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/main?schema=public&sslmode=disable
-DIRECT_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/main?schema=public&sslmode=disable
+---
 
-# --- Object Storage (MinIO interno por defecto) ---
-OBJECT_STORE_BASE_URL=http://minio:9000
-OBJECT_STORE_ACCESS_KEY_ID=admin
-OBJECT_STORE_SECRET_ACCESS_KEY=
+## 🧪 Quick Checks
 
-# --- ClickHouse / Replicación ---
-CLICKHOUSE_USER=default
-CLICKHOUSE_PASSWORD=
-CLICKHOUSE_URL=http://default:${CLICKHOUSE_PASSWORD}@clickhouse:8123?secure=false
-RUN_REPLICATION_ENABLED=1
-RUN_REPLICATION_CLICKHOUSE_URL=http://default:${CLICKHOUSE_PASSWORD}@clickhouse:8123
-
-# --- Registry externo (Tn-Registry) para deploys ---
-DEPLOY_REGISTRY_HOST=
-DEPLOY_REGISTRY_NAMESPACE=trigger
-DEPLOY_REGISTRY_USERNAME=
-DEPLOY_REGISTRY_PASSWORD=
-
-# --- Otros ---
-APP_LOG_LEVEL=info
-TRIGGER_BOOTSTRAP_ENABLED=0
-```
-
-### `.env.worker.example`
-
-```env
-# --- Versiones ---
-TRIGGER_IMAGE_TAG=v4.0.0
-DOCKER_PROXY_IMAGE_TAG=latest
-
-# --- Conexión a la Webapp ---
-TRIGGER_API_URL=https://trigger.example.com
-OTEL_EXPORTER_OTLP_ENDPOINT=https://trigger.example.com/otel
-
-# --- Auth del Worker ---
-TRIGGER_WORKER_TOKEN=
-MANAGED_WORKER_SECRET=
-
-# --- Registry (si privado) ---
-DOCKER_REGISTRY_URL=
-DOCKER_REGISTRY_USERNAME=
-DOCKER_REGISTRY_PASSWORD=
-
-# --- Opcionales ---
-DEBUG=1
-ENFORCE_MACHINE_PRESETS=1
-TRIGGER_DEQUEUE_INTERVAL_MS=1000
-```
+- **Webapp**: open `https://<your-FQDN>` → create initial account → check the log for the magic email link.
+- **Logs**: if Worker doesn't connect, check `TRIGGER_API_URL`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `TRIGGER_WORKER_TOKEN` and that the server has Internet access.
 
 ---
 
 ## 🐞 Troubleshooting
 
-- **El Worker no aparece online**:
-  - Revisa `TRIGGER_WORKER_TOKEN` (que no tenga espacios ni saltos).
-  - Comprueba `TRIGGER_API_URL` y `OTEL_EXPORTER_OTLP_ENDPOINT` (HTTPS válidos).
-  - Asegura salida a Internet desde `Tn-Trigger-Worker1`.
-- **Errores al build/pull de imágenes para runs**:
-  - Configura `DOCKER_REGISTRY_*` en el Worker y haz `docker login` si usas imágenes privadas.
-- **Enlaces de login por email**:
-  - Si no configuras proveedor (`EMAIL_TRANSPORT`), los magic links quedan en logs de la Webapp.
-- **Cambiaste `SESSION_SECRET`**:
-  - Se invalidarán sesiones existentes. Evítalo en producción.
-- **CORS/orígenes**:
-  - Usa siempre el mismo dominio en `APP_ORIGIN/LOGIN_ORIGIN/API_ORIGIN` (en este README ya se derivan de `SERVICE_FQDN_WEBAPP_3000`).
+- **Worker doesn't appear online**:
+  - Check `TRIGGER_WORKER_TOKEN` (no spaces or line breaks).
+  - Verify `TRIGGER_API_URL` and `OTEL_EXPORTER_OTLP_ENDPOINT` (valid HTTPS).
+  - Ensure Internet access from the Worker server.
+- **Build/pull errors for run images**:
+  - Configure `DOCKER_REGISTRY_*` in Worker and do `docker login` if using private images.
+- **Email login links**:
+  - If you don't configure provider (`EMAIL_TRANSPORT`), magic links stay in Webapp logs.
+- **Changed `SESSION_SECRET`**:
+  - Existing sessions will be invalidated. Avoid in production.
+- **CORS/origins**:
+  - Always use the same domain in `APP_ORIGIN/LOGIN_ORIGIN/API_ORIGIN` (in this README they're derived from `SERVICE_FQDN_WEBAPP_3000`).
 
 ---
 
-## 📎 Notas
+## 📎 Notes
 
-- Este README asume **split setup**: por eso **no** hay volumen `shared:/home/node/shared` ni `user: root`/`chown`, ni `TRIGGER_WORKER_TOKEN=file://...`.
-- Si un día ejecutas **todo en el mismo host**, puedes restaurar el `shared` y el “bootstrap” (`TRIGGER_BOOTSTRAP_ENABLED=1`) para que el token se deposite en fichero.
+- This README assumes **split setup**: that's why there's **no** `shared:/home/node/shared` volume nor `user: root`/`chown`, nor `TRIGGER_WORKER_TOKEN=file://...`.
+- If you ever run **everything on the same host**, you can restore the `shared` and "bootstrap" (`TRIGGER_BOOTSTRAP_ENABLED=1`) so the token gets deposited in a file.
 
 ---
 
-¡Listo! Copia/pega los YAML en Coolify y rellena las variables mínimas. Si quieres, añade también una versión **sin ClickHouse/MinIO** apuntando a servicios externos.
+Ready! Copy/paste the YAMLs in Coolify and fill in the minimum variables. If you want, also add a version **without ClickHouse/MinIO** pointing to external services.
