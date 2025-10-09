@@ -25,9 +25,9 @@ services:
       # ---- Domain (Coolify/Traefik) ----
       - SERVICE_FQDN_WEBAPP_3000
       - REMIX_APP_PORT=3000
-      - APP_ORIGIN=${SERVICE_FQDN_WEBAPP_3000}
-      - LOGIN_ORIGIN=${SERVICE_FQDN_WEBAPP_3000}
-      - API_ORIGIN=${SERVICE_FQDN_WEBAPP_3000}
+      - APP_ORIGIN=${SERVICE_FQDN_WEBAPP}
+      - LOGIN_ORIGIN=${SERVICE_FQDN_WEBAPP}
+      - API_ORIGIN=${SERVICE_FQDN_WEBAPP}
 
       # ---- Secrets (Coolify Magic Vars) ----
       - SESSION_SECRET=${SERVICE_PASSWORD_SESSION}
@@ -48,7 +48,7 @@ services:
       - ELECTRIC_ORIGIN=http://electric:3000
 
       # ---- OTEL (dev, optional) ----
-      - DEV_OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_FQDN_WEBAPP_3000}/otel
+      - DEV_OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_FQDN_WEBAPP}/otel
 
       # ---- External Registry (Tn-Registry) ----
       - DEPLOY_REGISTRY_HOST=${DEPLOY_REGISTRY_HOST}
