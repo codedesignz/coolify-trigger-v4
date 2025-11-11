@@ -4,7 +4,7 @@
 
 services:
   supervisor:
-    image: ghcr.io/triggerdotdev/supervisor:v4.0.0
+    image: ghcr.io/triggerdotdev/supervisor:v4.0.4
     restart: unless-stopped
     depends_on:
       - docker-proxy
@@ -25,7 +25,7 @@ services:
 
       DOCKER_HOST: tcp://docker-proxy:2375
       DOCKER_RUNNER_NETWORKS: supervisor
-      DOCKER_AUTOREMOVE_EXITED_CONTAINERS: 0
+      DOCKER_AUTOREMOVE_EXITED_CONTAINERS: true
 
       # Registry (if your runs use private images):
       DOCKER_REGISTRY_URL: ${DOCKER_REGISTRY_URL}
@@ -37,15 +37,11 @@ services:
       TRIGGER_DEQUEUE_INTERVAL_MS: 1000
 
     healthcheck:
-      test:
-        - CMD
-        - node
-        - '-e'
-        - "require('http').get('http://127.0.0.1:8020/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+      test: ["CMD", "node", "-e", "http.get('http://localhost:8020/health', res => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 15s
     networks:
       - supervisor
       - docker-proxy
@@ -63,16 +59,20 @@ services:
       INFO: 1
       NETWORKS: 1
     healthcheck:
-      test: ["CMD", "nc", "-z", "127.0.0.1", "2375"]
+      test:
+        - CMD-SHELL
+        - "busybox nc -z 127.0.0.1 2375"
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 5s
+      start_period: 10s
     networks:
       - docker-proxy
 
 networks:
   supervisor:
     name: supervisor
+    external: true
   docker-proxy:
     name: docker-proxy
+    external: true
