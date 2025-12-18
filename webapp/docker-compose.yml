@@ -4,7 +4,7 @@
 
 services:
   webapp:
-    image: ghcr.io/triggerdotdev/trigger.dev:v4.0.0
+    image: 'ghcr.io/triggerdotdev/trigger.dev:v4.0.4'
     restart: unless-stopped
     depends_on:
       postgres:
@@ -20,64 +20,44 @@ services:
     volumes:
       - 'shared:/home/node/shared'
     user: root
-    command: sh -c "chown -R node:node /home/node/shared && exec ./scripts/entrypoint.sh"
+    command: 'sh -c "chown -R node:node /home/node/shared && exec ./scripts/entrypoint.sh"'
     environment:
-      # ---- Domain (Coolify/Traefik) ----
       - SERVICE_FQDN_WEBAPP_3000
       - REMIX_APP_PORT=3000
-      - APP_ORIGIN=${SERVICE_FQDN_WEBAPP}
-      - LOGIN_ORIGIN=${SERVICE_FQDN_WEBAPP}
-      - API_ORIGIN=${SERVICE_FQDN_WEBAPP}
-
-      # ---- Secrets (Coolify Magic Vars) ----
-      - SESSION_SECRET=${SERVICE_PASSWORD_SESSION}
-      - MAGIC_LINK_SECRET=${SERVICE_PASSWORD_MAGIC}
-      - ENCRYPTION_KEY=${SERVICE_PASSWORD_ENCRYPTION}
-      - MANAGED_WORKER_SECRET=${SERVICE_PASSWORD_MANAGEDWORKER}
-
-      # ---- Postgres ----
-      - DATABASE_URL=postgresql://${SERVICE_USER_POSTGRES:-postgres}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-trigger}?schema=public&sslmode=disable
-      - DIRECT_URL=postgresql://${SERVICE_USER_POSTGRES:-postgres}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-trigger}?schema=public&sslmode=disable
-
-      # ---- Redis ----
+      - 'APP_ORIGIN=${SERVICE_URL_WEBAPP}'
+      - 'LOGIN_ORIGIN=${SERVICE_URL_WEBAPP}'
+      - 'API_ORIGIN=${SERVICE_URL_WEBAPP}'
+      - 'SESSION_SECRET=${SERVICE_PASSWORD_SESSION}'
+      - 'MAGIC_LINK_SECRET=${SERVICE_PASSWORD_MAGIC}'
+      - 'ENCRYPTION_KEY=${SERVICE_PASSWORD_ENCRYPTION}'
+      - 'MANAGED_WORKER_SECRET=${SERVICE_PASSWORD_MANAGEDWORKER}'
+      - 'DATABASE_URL=postgresql://${SERVICE_USER_POSTGRES:-postgres}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-trigger}?schema=public&sslmode=disable'
+      - 'DIRECT_URL=postgresql://${SERVICE_USER_POSTGRES:-postgres}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-trigger}?schema=public&sslmode=disable'
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_TLS_DISABLED=true
-
-      # ---- Electric (Realtime) ----
-      - ELECTRIC_ORIGIN=http://electric:3000
-
-      # ---- OTEL (dev, optional) ----
-      - DEV_OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_FQDN_WEBAPP}/otel
-
-      # ---- External Registry (Tn-Registry) ----
-      - DEPLOY_REGISTRY_HOST=${DEPLOY_REGISTRY_HOST}
-      - DEPLOY_REGISTRY_NAMESPACE=${DEPLOY_REGISTRY_NAMESPACE:-trigger}
-      - DEPLOY_REGISTRY_USERNAME=${DEPLOY_REGISTRY_USERNAME}
-      - DEPLOY_REGISTRY_PASSWORD=${DEPLOY_REGISTRY_PASSWORD}
-      # - DEPLOY_IMAGE_PLATFORM=linux/amd64
-
-      # ---- Object Store (MinIO internal by default) ----
-      - OBJECT_STORE_BASE_URL=http://minio:9000
+      - 'ELECTRIC_ORIGIN=http://electric:3000'
+      - 'DEV_OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_URL_WEBAPP}/otel'
+      - 'DEPLOY_REGISTRY_HOST=${DEPLOY_REGISTRY_HOST}'
+      - 'DEPLOY_REGISTRY_NAMESPACE=${DEPLOY_REGISTRY_NAMESPACE:-trigger}'
+      - 'DEPLOY_REGISTRY_USERNAME=${DEPLOY_REGISTRY_USERNAME}'
+      - 'DEPLOY_REGISTRY_PASSWORD=${DEPLOY_REGISTRY_PASSWORD}'
+      - 'OBJECT_STORE_BASE_URL=http://minio:9000'
       - OBJECT_STORE_ACCESS_KEY_ID=admin
-      - OBJECT_STORE_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_MINIO}
-
-      # ---- Bootstrap disabled (split) ----
+      - 'OBJECT_STORE_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_MINIO}'
       - TRIGGER_BOOTSTRAP_ENABLED=1
       - TRIGGER_BOOTSTRAP_WORKER_GROUP_NAME=bootstrap
       - TRIGGER_BOOTSTRAP_WORKER_TOKEN_PATH=/home/node/shared/worker_token
-
-      # ---- ClickHouse / Replication ----
-      - CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123?secure=false
+      - 'CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123?secure=false'
       - CLICKHOUSE_LOG_LEVEL=info
       - RUN_REPLICATION_ENABLED=1
-      - RUN_REPLICATION_CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123
+      - 'RUN_REPLICATION_CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123'
       - RUN_REPLICATION_LOG_LEVEL=info
-
       - APP_LOG_LEVEL=info
       - TRIGGER_TELEMETRY_DISABLED=1
-      # - NODE_MAX_OLD_SPACE_SIZE=4096
-
+      - 'COOLIFY_APP_NAME=${COOLIFY_APP_NAME}'
+      - 'COOLIFY_ENVIRONMENT_NAME=${COOLIFY_ENVIRONMENT_NAME}'
+      - 'COOLIFY_PROJECT_NAME=${COOLIFY_PROJECT_NAME}'
     healthcheck:
       test:
         - CMD
@@ -92,11 +72,13 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
-    command: ["-c", "wal_level=logical"] # required by Electric
+    command:
+      - '-c'
+      - wal_level=logical
     environment:
-      POSTGRES_USER: ${SERVICE_USER_POSTGRES:-postgres}
-      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
-      POSTGRES_DB: ${POSTGRES_DB:-trigger}
+      POSTGRES_USER: '${SERVICE_USER_POSTGRES:-postgres}'
+      POSTGRES_PASSWORD: '${SERVICE_PASSWORD_POSTGRES}'
+      POSTGRES_DB: '${POSTGRES_DB:-trigger}'
     volumes:
       - 'postgres-data:/var/lib/postgresql/data'
     healthcheck:
@@ -129,9 +111,13 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES:-postgres}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-trigger}?schema=public&sslmode=disable
-      ELECTRIC_INSECURE: "true"
-      ELECTRIC_USAGE_REPORTING: "false"
+      DATABASE_URL: 'postgresql://${SERVICE_USER_POSTGRES:-postgres}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-trigger}?schema=public&sslmode=disable'
+      ELECTRIC_INSECURE: 'true'
+      ELECTRIC_USAGE_REPORTING: 'false'
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     healthcheck:
       test:
         - CMD
@@ -144,14 +130,13 @@ services:
       start_period: 10s
 
   clickhouse:
-    image: bitnamilegacy/clickhouse:latest
+    image: 'bitnamilegacy/clickhouse:latest'
     restart: unless-stopped
     environment:
-      CLICKHOUSE_ADMIN_USER: ${SERVICE_USER_CLICKHOUSE:-default}
-      CLICKHOUSE_ADMIN_PASSWORD: ${SERVICE_PASSWORD_64_CLICKHOUSE}
+      CLICKHOUSE_ADMIN_USER: '${SERVICE_USER_CLICKHOUSE:-default}'
+      CLICKHOUSE_ADMIN_PASSWORD: '${SERVICE_PASSWORD_64_CLICKHOUSE}'
     volumes:
       - 'clickhouse-data:/bitnami/clickhouse'
-      # - ../clickhouse/override.xml:/bitnami/clickhouse/etc/config.d/override.xml:ro
     healthcheck:
       test:
         - CMD
@@ -172,15 +157,13 @@ services:
       start_period: 10s
 
   minio:
-    image: bitnamilegacy/minio:latest
+    image: 'bitnamilegacy/minio:latest'
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_MINIO}
+      MINIO_ROOT_PASSWORD: '${SERVICE_PASSWORD_MINIO}'
       MINIO_DEFAULT_BUCKETS: packets
-      MINIO_BROWSER: "on"
-      # To expose the console via Coolify's Traefik, you could add:
-      # - SERVICE_FQDN_MINIO_9001
+      MINIO_BROWSER: 'on'
     volumes:
       - 'minio-data:/bitnami/minio/data'
     healthcheck:
