@@ -4,7 +4,7 @@
 
 services:
   webapp:
-    image: 'ghcr.io/triggerdotdev/trigger.dev:v4.0.4'
+    image: 'ghcr.io/triggerdotdev/trigger.dev:v4.4.4'
     restart: unless-stopped
     depends_on:
       postgres:
@@ -58,6 +58,7 @@ services:
       - 'COOLIFY_APP_NAME=${COOLIFY_APP_NAME}'
       - 'COOLIFY_ENVIRONMENT_NAME=${COOLIFY_ENVIRONMENT_NAME}'
       - 'COOLIFY_PROJECT_NAME=${COOLIFY_PROJECT_NAME}'
+      - 'OPENAI_API_KEY=${OPENAI_API_KEY}'
     healthcheck:
       test:
         - CMD
@@ -68,9 +69,8 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-
   postgres:
-    image: postgres:16-alpine
+    image: 'postgres:16-alpine'
     restart: unless-stopped
     command:
       - '-c'
@@ -88,9 +88,8 @@ services:
       interval: 5s
       timeout: 20s
       retries: 10
-
   redis:
-    image: redis:7
+    image: 'redis:7'
     restart: unless-stopped
     volumes:
       - 'redis-data:/data'
@@ -103,9 +102,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-
   electric:
-    image: electricsql/electric:1.0.24
+    image: 'electricsql/electric:1.2.3'
     restart: unless-stopped
     depends_on:
       postgres:
@@ -128,7 +126,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-
   clickhouse:
     image: 'bitnamilegacy/clickhouse:latest'
     restart: unless-stopped
@@ -155,7 +152,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-
   minio:
     image: 'bitnamilegacy/minio:latest'
     restart: unless-stopped

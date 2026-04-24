@@ -4,7 +4,7 @@
 
 services:
   supervisor:
-    image: ghcr.io/triggerdotdev/supervisor:v4.0.4
+    image: ghcr.io/triggerdotdev/supervisor:v4.4.4
     restart: unless-stopped
     depends_on:
       - docker-proxy
