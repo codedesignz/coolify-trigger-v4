@@ -1,8 +1,8 @@
-# Trigger v4 (4.0.0) on Coolify v4 with Traefik — **Split** Webapp & Worker
+# Trigger.dev v4.5.4 on Coolify v4 with Traefik — **Split** Webapp & Worker
 
 This README explains how to deploy **Trigger v4** using **Coolify v4** with **Traefik**, separating the **Webapp** and the **Worker/Supervisor**. It also considers an existing **External Docker Registry**.
 
-> Tested with the official `trigger.dev@4.0.0` Docker Compose template as base and adapted for Coolify (without `ports:` and leveraging **Magic Env Vars** like `SERVICE_FQDN_*` and `SERVICE_PASSWORD_*`).
+> Based on the official Trigger.dev `v4.5.4` Docker Compose template and adapted for Coolify (without `ports:` and leveraging **Magic Env Vars** like `SERVICE_FQDN_*` and `SERVICE_PASSWORD_*`). Webapp, supervisor, SDK, build and CLI must use the same release line.
 
 ---
 
@@ -20,7 +20,7 @@ This README explains how to deploy **Trigger v4** using **Coolify v4** with **Tr
 
 - **Webapp**: exposed to Internet via Coolify's Traefik. Manages UI, API, worker group tokens, etc.
 - **Worker (Supervisor)**: **not** publicly exposed. Connects **outbound** to the Webapp via HTTPS (`TRIGGER_API_URL`) and executes workloads in ephemeral containers via Docker.
-- **Webapp internal services**: Postgres, Redis, ElectricSQL (Realtime), ClickHouse (metrics), MinIO (object storage) — same as in the official Compose.
+- **Webapp internal services**: Postgres, Redis, ElectricSQL, S2 Lite (Realtime Streams v2), ClickHouse (metrics), MinIO (object storage) — same as in the official Compose.
 
 ---
 
@@ -53,6 +53,21 @@ This README explains how to deploy **Trigger v4** using **Coolify v4** with **Tr
 
 - **Webapp**: open `https://<your-FQDN>` → create initial account → check the log for the magic email link.
 - **Logs**: if Worker doesn't connect, check `TRIGGER_API_URL`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `TRIGGER_WORKER_TOKEN` and that the server has Internet access.
+- **Sessions API**: an unauthenticated `curl -i https://<your-FQDN>/api/v1/sessions` must return JSON `401`, not HTML `404`.
+- **Realtime API**: an unauthenticated `curl -i https://<your-FQDN>/realtime/v1/sessions/test/out` must return an API authorization/not-found response, not the dashboard HTML page.
+
+## 🔄 Upgrade from v4.4.4
+
+Trigger.dev `v4.5.4` removes the legacy v3 engine. Inventory any v3 tasks sharing this tests instance and migrate them before upgrading.
+
+1. Back up the PostgreSQL volume before changing the recipe.
+2. Update and deploy the Webapp recipe first. Keep every existing `SERVICE_PASSWORD_*` value unchanged.
+3. Confirm that `webapp`, `s2-init` and `s2` start successfully and that the Webapp healthcheck passes.
+4. Update and deploy the Worker recipe with the same `v4.5.4` release.
+5. Redeploy the Trigger.dev tasks using CLI `4.5.4`.
+6. Run both Sessions/Realtime checks above and then retry the iCOne assistant.
+
+Do not roll the Webapp back to `v4.4.4` after its database migrations have run unless the corresponding Trigger.dev rollback procedure explicitly supports it. `REALTIME_STREAMS_DEFAULT_VERSION=v1` can be used as a temporary Redis-backed fallback, but the recipe defaults to the official S2-backed `v2` mode recommended for current agent streaming.
 
 ---
 
@@ -75,8 +90,8 @@ This README explains how to deploy **Trigger v4** using **Coolify v4** with **Tr
 
 ## 📎 Notes
 
-- This README assumes **split setup**: that's why there's **no** `shared:/home/node/shared` volume nor `user: root`/`chown`, nor `TRIGGER_WORKER_TOKEN=file://...`.
-- If you ever run **everything on the same host**, you can restore the `shared` and "bootstrap" (`TRIGGER_BOOTSTRAP_ENABLED=1`) so the token gets deposited in a file.
+- This README assumes a **split setup**. The Worker has no shared volume and receives `TRIGGER_WORKER_TOKEN` explicitly instead of reading the Webapp's bootstrap token file.
+- If everything runs on the same Docker host and project, mount the Webapp's `shared` volume in the Worker and use `TRIGGER_WORKER_TOKEN=file:///home/node/shared/worker_token`.
 
 ---
 

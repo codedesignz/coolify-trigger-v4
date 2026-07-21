@@ -4,16 +4,10 @@
 
 services:
   supervisor:
-    image: ghcr.io/triggerdotdev/supervisor:v4.4.4
+    image: ghcr.io/triggerdotdev/supervisor:v4.5.4
     restart: unless-stopped
     depends_on:
       - docker-proxy
-    volumes:
-      - shared:/home/node/shared
-    # Only needed for bootstrap
-    user: root
-    # Only needed for bootstrap
-    command: sh -c "chown -R node:node /home/node/shared && exec /usr/bin/dumb-init -- pnpm run --filter supervisor start"
     environment:
       TRIGGER_API_URL: ${TRIGGER_API_URL}                    # https://trigger.sidicom.es
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}  # https://trigger.sidicom.es/otel
@@ -27,7 +21,7 @@ services:
 
       DOCKER_HOST: tcp://docker-proxy:2375
       DOCKER_RUNNER_NETWORKS: supervisor
-      DOCKER_AUTOREMOVE_EXITED_CONTAINERS: true
+      DOCKER_AUTOREMOVE_EXITED_CONTAINERS: 'true'
 
       # Registry (if your runs use private images):
       DOCKER_REGISTRY_URL: ${DOCKER_REGISTRY_URL}

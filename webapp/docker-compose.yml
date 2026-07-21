@@ -4,7 +4,7 @@
 
 services:
   webapp:
-    image: 'ghcr.io/triggerdotdev/trigger.dev:v4.4.4'
+    image: 'ghcr.io/triggerdotdev/trigger.dev:v4.5.4'
     restart: unless-stopped
     depends_on:
       postgres:
@@ -17,6 +17,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      s2:
+        condition: service_started
     volumes:
       - 'shared:/home/node/shared'
     user: root
@@ -37,6 +39,12 @@ services:
       - REDIS_PORT=6379
       - REDIS_TLS_DISABLED=true
       - 'ELECTRIC_ORIGIN=http://electric:3000'
+      # Realtime Streams v2 powers durable chat.agent input/output streams.
+      - 'REALTIME_STREAMS_DEFAULT_VERSION=${REALTIME_STREAMS_DEFAULT_VERSION:-v2}'
+      - 'REALTIME_STREAMS_S2_BASIN=${REALTIME_STREAMS_S2_BASIN:-trigger-realtime}'
+      - 'REALTIME_STREAMS_S2_ENDPOINT=${REALTIME_STREAMS_S2_ENDPOINT:-http://s2/v1}'
+      - 'REALTIME_STREAMS_S2_SKIP_ACCESS_TOKENS=${REALTIME_STREAMS_S2_SKIP_ACCESS_TOKENS:-true}'
+      - 'REALTIME_STREAMS_S2_ACCESS_TOKEN=${REALTIME_STREAMS_S2_ACCESS_TOKEN:-}'
       - 'DEV_OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_URL_WEBAPP}/otel'
       - 'DEPLOY_REGISTRY_HOST=${DEPLOY_REGISTRY_HOST}'
       - 'DEPLOY_REGISTRY_NAMESPACE=${DEPLOY_REGISTRY_NAMESPACE:-trigger}'
@@ -103,7 +111,7 @@ services:
       retries: 5
       start_period: 10s
   electric:
-    image: 'electricsql/electric:1.2.3'
+    image: 'electricsql/electric:1.2.4'
     restart: unless-stopped
     depends_on:
       postgres:
@@ -172,3 +180,48 @@ services:
       timeout: 10s
       retries: 5
       start_period: 10s
+
+  # Generates the basin definition consumed by the distroless s2-lite image.
+  s2-init:
+    image: 'busybox:1.37'
+    restart: 'no'
+    environment:
+      REALTIME_STREAMS_S2_BASIN: '${REALTIME_STREAMS_S2_BASIN:-trigger-realtime}'
+    command:
+      - sh
+      - -c
+      - |
+        cat > /config/s2-spec.json <<JSON
+        {
+          "basins": [
+            {
+              "name": "$$REALTIME_STREAMS_S2_BASIN",
+              "config": { "create_stream_on_append": true, "create_stream_on_read": true }
+            }
+          ]
+        }
+        JSON
+    volumes:
+      - 's2-config:/config'
+
+  # Realtime Streams v2 storage used by Trigger.dev Sessions and chat.agent.
+  s2:
+    image: '${S2_IMAGE:-ghcr.io/s2-streamstore/s2:latest@sha256:d6ded5ca7dd619fa7c946f06e39a98f9c95c6883c8bb884e5eaa129f232c920c}'
+    restart: unless-stopped
+    depends_on:
+      s2-init:
+        condition: service_completed_successfully
+    command: ['lite', '--init-file', '/config/s2-spec.json', '--local-root', '/data']
+    user: '0:0'
+    volumes:
+      - 's2-config:/config'
+      - 's2-data:/data'
+
+volumes:
+  shared:
+  postgres-data:
+  redis-data:
+  clickhouse-data:
+  minio-data:
+  s2-config:
+  s2-data:
