@@ -20,7 +20,8 @@ services:
       TRIGGER_WARM_START_URL: ${TRIGGER_WARM_START_URL:-}
 
       DOCKER_HOST: tcp://docker-proxy:2375
-      DOCKER_RUNNER_NETWORKS: supervisor
+      # Must match the external network used by the Webapp s2 service.
+      DOCKER_RUNNER_NETWORKS: '${TRIGGER_RUNNER_NETWORK:-supervisor}'
       DOCKER_AUTOREMOVE_EXITED_CONTAINERS: 'true'
 
       # Registry (if your runs use private images):
@@ -67,8 +68,8 @@ services:
 
 networks:
   supervisor:
-    name: supervisor
+    name: '${TRIGGER_RUNNER_NETWORK:-supervisor}'
     external: true
   docker-proxy:
-    name: docker-proxy
-    external: true
+    # Private network owned by this stack; it does not need pre-provisioning.
+    internal: true

@@ -44,7 +44,9 @@ services:
       - 'REALTIME_STREAMS_S2_BASIN=${REALTIME_STREAMS_S2_BASIN:-trigger-realtime}'
       - 'REALTIME_STREAMS_S2_ENDPOINT=${REALTIME_STREAMS_S2_ENDPOINT:-http://s2/v1}'
       - 'REALTIME_STREAMS_S2_SKIP_ACCESS_TOKENS=${REALTIME_STREAMS_S2_SKIP_ACCESS_TOKENS:-true}'
-      - 'REALTIME_STREAMS_S2_ACCESS_TOKEN=${REALTIME_STREAMS_S2_ACCESS_TOKEN:-}'
+      # s2-lite skips authentication, but the Sessions SDK still requires a
+      # non-empty credential header. "ignored" is the upstream dummy value.
+      - 'REALTIME_STREAMS_S2_ACCESS_TOKEN=${REALTIME_STREAMS_S2_ACCESS_TOKEN:-ignored}'
       - 'DEV_OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_URL_WEBAPP}/otel'
       - 'DEPLOY_REGISTRY_HOST=${DEPLOY_REGISTRY_HOST}'
       - 'DEPLOY_REGISTRY_NAMESPACE=${DEPLOY_REGISTRY_NAMESPACE:-trigger}'
@@ -134,14 +136,161 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-  clickhouse:
-    image: 'bitnamilegacy/clickhouse:latest'
-    restart: unless-stopped
+
+  # Optional one-time, offline migration from the archived Bitnami layout.
+  # Fresh mode skips the copy and leaves the legacy volume untouched.
+  clickhouse-migrate:
+    image: 'clickhouse/clickhouse-server:26.2.19.43@sha256:c2f2605585899d5103a0447daadbc0005f362200d5f0fcca7f40db3ca0dd36dd'
+    restart: 'no'
+    user: '0:0'
+    entrypoint:
+      - /bin/bash
+      - -ec
+    command:
+      - |
+        set -Eeuo pipefail
+
+        source_dir=/legacy/data
+        target_dir=/var/lib/clickhouse
+        migration_marker="$$target_dir/.trigger-clickhouse-26.2-migrated"
+        fresh_marker="$$target_dir/.trigger-clickhouse-26.2-fresh"
+
+        case "$${CLICKHOUSE_STORAGE_INIT_MODE:-fresh}" in
+          fresh)
+            if [ -f "$$migration_marker" ]; then
+              echo 'Fresh mode refused because this target contains a completed Bitnami migration.' >&2
+              exit 1
+            fi
+            if find "$$target_dir" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+              if [ ! -f "$$fresh_marker" ]; then
+                echo 'Fresh mode refused because the target is non-empty and has no fresh initialization marker.' >&2
+                exit 1
+              fi
+              echo 'Fresh ClickHouse storage already initialized; legacy data remains untouched.'
+              exit 0
+            fi
+            touch "$$fresh_marker"
+            sync "$$fresh_marker"
+            echo 'Fresh ClickHouse storage selected; legacy data will not be copied or modified.'
+            exit 0
+            ;;
+          migrate-bitnami)
+            ;;
+          *)
+            echo 'CLICKHOUSE_STORAGE_INIT_MODE must be migrate-bitnami or fresh.' >&2
+            exit 1
+            ;;
+        esac
+
+        if [ -f "$$migration_marker" ]; then
+          if [ ! -d "$$target_dir/metadata" ] || [ ! -d "$$target_dir/store" ]; then
+            echo 'Migration marker exists, but the expected ClickHouse data directories are missing.' >&2
+            exit 1
+          fi
+          echo 'ClickHouse data migration already completed.'
+          exit 0
+        fi
+
+        if find "$$target_dir" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+          echo 'Refusing to overwrite a non-empty ClickHouse 26.2 target volume.' >&2
+          exit 1
+        fi
+
+        if [ -d "$$source_dir" ] && find "$$source_dir" -mindepth 1 -print -quit | grep -q .; then
+          if [ ! -d "$$source_dir/metadata" ] || [ ! -d "$$source_dir/store" ]; then
+            echo 'Legacy ClickHouse data does not contain the expected metadata/ and store/ directories.' >&2
+            exit 1
+          fi
+
+          if timeout 2 bash -c 'exec 3<>/dev/tcp/clickhouse/8123' 2>/dev/null; then
+            echo 'Legacy ClickHouse is still reachable; stop the complete stack before migration.' >&2
+            exit 1
+          fi
+
+          if [ "$${CLICKHOUSE_MIGRATION_ACK:-}" != 'offline-copy-confirmed' ]; then
+            echo 'Set CLICKHOUSE_MIGRATION_ACK=offline-copy-confirmed only after stopping the complete Webapp stack.' >&2
+            exit 1
+          fi
+
+          source_kb="$$(du -sk "$$source_dir" | awk '{print $$1}')"
+          available_kb="$$(df -Pk "$$target_dir" | awk 'NR == 2 {print $$4}')"
+          required_kb="$$((source_kb + source_kb / 3))"
+          if [ "$$available_kb" -lt "$$required_kb" ]; then
+            echo "Insufficient free space: need at least $${required_kb} KiB, have $${available_kb} KiB." >&2
+            exit 1
+          fi
+
+          echo 'Copying legacy ClickHouse data to the 26.2 volume...'
+          cp -a --reflink=auto --sparse=always "$$source_dir"/. "$$target_dir"/
+
+          source_entries="$$(find "$$source_dir" -xdev -mindepth 1 -printf . | wc -c)"
+          target_entries="$$(find "$$target_dir" -xdev -mindepth 1 -printf . | wc -c)"
+          source_bytes="$$(find "$$source_dir" -xdev -type f -printf '%s\n' | awk '{ total += $$1 } END { print total + 0 }')"
+          target_bytes="$$(find "$$target_dir" -xdev -type f -printf '%s\n' | awk '{ total += $$1 } END { print total + 0 }')"
+          if [ "$$source_entries" -ne "$$target_entries" ] || [ "$$source_bytes" -ne "$$target_bytes" ]; then
+            echo 'ClickHouse copy verification failed; the completion marker was not created.' >&2
+            exit 1
+          fi
+
+          # The lock file is runtime state; never carry it into the cloned volume.
+          rm -f "$$target_dir/status"
+
+          # Bitnami stores data/tmp as an absolute symlink into /opt/bitnami.
+          # It is invalid in the official image after relocating data/ to the root.
+          if [ -L "$$target_dir/tmp" ]; then
+            echo "Replacing legacy tmp symlink: $$(readlink "$$target_dir/tmp")"
+            rm "$$target_dir/tmp"
+            mkdir -p "$$target_dir/tmp"
+          elif [ -e "$$target_dir/tmp" ] && [ ! -d "$$target_dir/tmp" ]; then
+            echo 'The migrated ClickHouse tmp path is neither a directory nor a symlink.' >&2
+            exit 1
+          else
+            mkdir -p "$$target_dir/tmp"
+          fi
+        else
+          echo 'Legacy ClickHouse data is missing or empty. Verify that this is the same Coolify resource and volume.' >&2
+          exit 1
+        fi
+
+        clickhouse_uid="$$(id -u clickhouse)"
+        clickhouse_gid="$$(id -g clickhouse)"
+        chown -R "$$clickhouse_uid:$$clickhouse_gid" "$$target_dir"
+        sync
+        touch "$$migration_marker"
+        sync "$$migration_marker"
+        echo 'ClickHouse data migration completed.'
     environment:
-      CLICKHOUSE_ADMIN_USER: '${SERVICE_USER_CLICKHOUSE:-default}'
-      CLICKHOUSE_ADMIN_PASSWORD: '${SERVICE_PASSWORD_64_CLICKHOUSE}'
+      CLICKHOUSE_MIGRATION_ACK: '${CLICKHOUSE_MIGRATION_ACK:-}'
+      CLICKHOUSE_STORAGE_INIT_MODE: '${CLICKHOUSE_STORAGE_INIT_MODE:-fresh}'
     volumes:
-      - 'clickhouse-data:/bitnami/clickhouse'
+      - 'clickhouse-data:/legacy:ro'
+      - type: volume
+        source: clickhouse-data-v26-2
+        target: /var/lib/clickhouse
+        volume:
+          nocopy: true
+
+  clickhouse:
+    image: 'clickhouse/clickhouse-server:26.2.19.43@sha256:c2f2605585899d5103a0447daadbc0005f362200d5f0fcca7f40db3ca0dd36dd'
+    restart: unless-stopped
+    stop_grace_period: 2m
+    depends_on:
+      clickhouse-migrate:
+        condition: service_completed_successfully
+    environment:
+      CLICKHOUSE_USER: '${SERVICE_USER_CLICKHOUSE:-default}'
+      CLICKHOUSE_PASSWORD: '${SERVICE_PASSWORD_64_CLICKHOUSE}'
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: '1'
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - type: volume
+        source: clickhouse-data-v26-2
+        target: /var/lib/clickhouse
+        volume:
+          nocopy: true
     healthcheck:
       test:
         - CMD
@@ -157,9 +306,9 @@ services:
         - '--query'
         - 'SELECT 1'
       interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
   minio:
     image: 'bitnamilegacy/minio:latest'
     restart: unless-stopped
@@ -216,12 +365,31 @@ services:
     volumes:
       - 's2-config:/config'
       - 's2-data:/data'
+    # Task containers write directly to the endpoint returned by the Webapp.
+    # Keep the default network for Webapp access and share the runner network
+    # so http://s2/v1 resolves without exposing s2-lite publicly.
+    networks:
+      default:
+      runner:
+        aliases:
+          - s2
 
 volumes:
   shared:
   postgres-data:
   redis-data:
+  # Retained as the immutable Bitnami source and rollback volume.
   clickhouse-data:
+  clickhouse-data-v26-2:
   minio-data:
   s2-config:
   s2-data:
+
+networks:
+  runner:
+    name: '${TRIGGER_RUNNER_NETWORK:-supervisor}'
+    # The Webapp stack is deployed first and owns this shared runner network.
+    # The Worker stack consumes it as external and ephemeral task containers
+    # are attached through DOCKER_RUNNER_NETWORKS.
+    driver: bridge
+    attachable: true
