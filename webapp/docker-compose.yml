@@ -357,6 +357,8 @@ services:
   s2:
     image: '${S2_IMAGE:-ghcr.io/s2-streamstore/s2:latest@sha256:d6ded5ca7dd619fa7c946f06e39a98f9c95c6883c8bb884e5eaa129f232c920c}'
     restart: unless-stopped
+    ports:
+      - '10.21.30.15:4566:80'
     depends_on:
       s2-init:
         condition: service_completed_successfully
