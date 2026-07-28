@@ -22,7 +22,7 @@ services:
       DOCKER_HOST: tcp://docker-proxy:2375
       # Official Trigger.dev setting. Each ephemeral run container is created
       # directly on these physical Docker networks (CSV, without spaces).
-      # It must include the network where MinIO and s2 are reachable.
+      # MinIO and S2 use private IP endpoints, so no Coolify UUID is needed.
       DOCKER_RUNNER_NETWORKS: '${DOCKER_RUNNER_NETWORKS:-supervisor}'
       DOCKER_AUTOREMOVE_EXITED_CONTAINERS: 'true'
 
