@@ -21,6 +21,10 @@ This README explains how to deploy **Trigger v4** using **Coolify v4** with **Tr
 - **Webapp**: exposed to Internet via Coolify's Traefik. Manages UI, API, worker group tokens, etc.
 - **Worker (Supervisor)**: **not** publicly exposed. Connects **outbound** to the Webapp via HTTPS (`TRIGGER_API_URL`) and executes workloads in ephemeral containers via Docker.
 - **Webapp internal services**: Postgres, Redis, ElectricSQL, S2 Lite (Realtime Streams v2), ClickHouse 26.2 (metrics), MinIO (object storage). ClickHouse uses the official image and version against which Trigger.dev develops and tests the v4.5 platform.
+- **Run event store**: new task events/timeline/spans are written to ClickHouse
+  with `EVENT_REPOSITORY_DEFAULT_STORE=clickhouse_v2`. This is required for
+  `llm_metrics` and the dashboard Models/AI metrics views that aggregate GenAI
+  spans from AI SDK calls.
 
 ---
 
@@ -60,6 +64,26 @@ The bundled `http://s2/v1` endpoint requires Webapp and Worker to run on the sam
 - **Sessions API**: an unauthenticated `curl -i -X POST https://<your-FQDN>/api/v1/sessions -H 'Content-Type: application/json' --data '{}'` must return JSON `401`, not HTML `404`.
 - **Realtime API**: an unauthenticated `curl -i https://<your-FQDN>/realtime/v1/sessions/test/out` must return an API authorization/not-found response, not the dashboard HTML page.
 - **S2 runner DNS**: a task container must resolve `s2` on the network named by `TRIGGER_RUNNER_NETWORK`; `getaddrinfo EAI_AGAIN s2` normally means Webapp/S2 and the runner do not share that Docker network. The Webapp deployment must create this network before deploying the Worker.
+- **LLM metrics**: after Webapp is deployed with `EVENT_REPOSITORY_DEFAULT_STORE=clickhouse_v2`,
+  run a new AI task and verify:
+
+  ```sql
+  SELECT
+    start_time,
+    task_identifier,
+    run_id,
+    gen_ai_system,
+    request_model,
+    response_model,
+    total_tokens,
+    total_cost
+  FROM llm_metrics
+  ORDER BY start_time DESC
+  LIMIT 20;
+  ```
+
+  The event store setting only affects new runs; historical PostgreSQL-backed
+  run events will not backfill `llm_metrics`.
 
 ## 🔄 Upgrade from v4.4.4
 
@@ -71,6 +95,11 @@ ClickHouse storage has two explicit modes:
 - `migrate-bitnami`: performs the guarded offline copy described below. It requires `CLICKHOUSE_MIGRATION_ACK=offline-copy-confirmed` and sufficient free space.
 
 For the initial fresh validation, set `CLICKHOUSE_STORAGE_INIT_MODE=fresh`, remove `CLICKHOUSE_MIGRATION_ACK`, stop the Worker and previous Webapp stack, then deploy. Trigger.dev recreates its ClickHouse-side schema, but historical ClickHouse metrics and event/trace observability will not appear in the fresh database.
+
+Keep `EVENT_REPOSITORY_DEFAULT_STORE=clickhouse_v2` enabled on the Webapp after
+the upgrade. Without it, new run spans can still be visible in individual run
+logs while `llm_metrics`, Models and AI metrics remain empty because the GenAI
+aggregation pipeline reads ClickHouse-backed event data.
 
 Fresh initialization writes a marker into the new target so later deployments can distinguish it from a partial migration. If you later choose to migrate history, the migration target must be empty. Stop the stack, optionally snapshot the fresh target, then recreate **only** `clickhouse-data-v26-2` or select a new target volume name; never delete or overwrite the legacy `clickhouse-data` volume.
 
@@ -160,6 +189,12 @@ Do not roll the Webapp back to `v4.4.4` after its database migrations have run u
   - With bundled s2-lite, set `REALTIME_STREAMS_S2_SKIP_ACCESS_TOKENS=true` and the required non-empty dummy `REALTIME_STREAMS_S2_ACCESS_TOKEN=ignored`; then redeploy Webapp.
 - **Task reports `getaddrinfo EAI_AGAIN s2`**:
   - Confirm Webapp and Worker are on the same Docker host, deploy Webapp first, verify both use the same `TRIGGER_RUNNER_NETWORK`, and check that the `s2` container plus runner container are attached to that network. Do not publish unauthenticated s2-lite as a workaround.
+- **Models / AI metrics empty but run shows `ai.streamText` spans**:
+  - Confirm the Webapp environment contains `EVENT_REPOSITORY_DEFAULT_STORE=clickhouse_v2`.
+  - Redeploy Webapp and run a new AI task; old runs are not backfilled.
+  - Query `llm_metrics` without task filters first. If it is still empty, check
+    Webapp logs for ClickHouse insert/migration errors and verify the Worker
+    has `OTEL_EXPORTER_OTLP_ENDPOINT=https://<webapp-domain>/otel`.
 - **`network supervisor declared as external, but could not be found`**:
   - Deploy the updated Webapp stack first; it owns and creates the attachable network. Then deploy the Worker, which intentionally references the same network as external. If Webapp is already deployed, verify it with `docker network inspect supervisor` before retrying Worker.
 - **CORS/origins**:

@@ -60,6 +60,11 @@ services:
       - TRIGGER_BOOTSTRAP_WORKER_TOKEN_PATH=/home/node/shared/worker_token
       - 'CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123?secure=false'
       - CLICKHOUSE_LOG_LEVEL=info
+      # Store new run events/timeline/spans in ClickHouse. Required for
+      # llm_metrics / Models usage views that aggregate GenAI spans.
+      - LLM_COST_TRACKING_ENABLED=true
+      - LLM_PRICING_SEED_ON_STARTUP=true
+      - EVENT_REPOSITORY_DEFAULT_STORE=clickhouse_v2
       - RUN_REPLICATION_ENABLED=1
       - 'RUN_REPLICATION_CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123'
       - RUN_REPLICATION_LOG_LEVEL=info
