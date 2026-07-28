@@ -20,8 +20,10 @@ services:
       TRIGGER_WARM_START_URL: ${TRIGGER_WARM_START_URL:-}
 
       DOCKER_HOST: tcp://docker-proxy:2375
-      # Must match the external network used by the Webapp s2 service.
-      DOCKER_RUNNER_NETWORKS: '${TRIGGER_RUNNER_NETWORK:-supervisor}'
+      # Official Trigger.dev setting. Each ephemeral run container is created
+      # directly on these physical Docker networks (CSV, without spaces).
+      # It must include the network where MinIO and s2 are reachable.
+      DOCKER_RUNNER_NETWORKS: '${DOCKER_RUNNER_NETWORKS:-supervisor}'
       DOCKER_AUTOREMOVE_EXITED_CONTAINERS: 'true'
 
       # Registry (if your runs use private images):

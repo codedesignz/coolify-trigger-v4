@@ -334,6 +334,14 @@ services:
       timeout: 10s
       retries: 5
       start_period: 10s
+    # Snapshot URLs are consumed directly by ephemeral task containers.
+    # Keep MinIO private while making its hostname resolvable on the runner network.
+    networks:
+      default:
+      # Physical Docker network: ${TRIGGER_RUNNER_NETWORK:-supervisor}.
+      runner:
+        aliases:
+          - minio
 
   # Generates the basin definition consumed by the distroless s2-lite image.
   s2-init:
@@ -393,6 +401,8 @@ volumes:
   s2-data:
 
 networks:
+  # Logical Compose key kept as "runner" for compatibility with the existing
+  # Docker network label com.docker.compose.network=runner.
   runner:
     name: '${TRIGGER_RUNNER_NETWORK:-supervisor}'
     # The Webapp stack is deployed first and owns this shared runner network.
