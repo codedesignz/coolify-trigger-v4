@@ -45,7 +45,7 @@ services:
       - 'REALTIME_STREAMS_S2_BASIN=${REALTIME_STREAMS_S2_BASIN:-trigger-realtime}'
       # Sessions and task containers may run on different Docker hosts.
       # Advertise the private host endpoint instead of Docker-only DNS.
-      - 'REALTIME_STREAMS_S2_ENDPOINT=http://${S2_PRIVATE_IP:-10.21.30.15}:${S2_PRIVATE_API_PORT:-4566}/v1'
+      - 'REALTIME_STREAMS_S2_ENDPOINT=http://${S2_PRIVATE_IP:-127.0.0.1}:${S2_PRIVATE_API_PORT:-4566}/v1'
       - 'REALTIME_STREAMS_S2_SKIP_ACCESS_TOKENS=${REALTIME_STREAMS_S2_SKIP_ACCESS_TOKENS:-true}'
       # s2-lite skips authentication, but the Sessions SDK still requires a
       # non-empty credential header. "ignored" is the upstream dummy value.
@@ -57,7 +57,7 @@ services:
       - 'DEPLOY_REGISTRY_PASSWORD=${DEPLOY_REGISTRY_PASSWORD}'
       # Snapshot URLs are consumed by task containers that may run on another
       # Docker host. Advertise the private host endpoint, never Docker-only DNS.
-      - 'OBJECT_STORE_BASE_URL=http://${MINIO_PRIVATE_IP:-10.21.30.15}:${MINIO_PRIVATE_API_PORT:-9002}'
+      - 'OBJECT_STORE_BASE_URL=http://${MINIO_PRIVATE_IP:-127.0.0.1}:${MINIO_PRIVATE_API_PORT:-9002}'
       - OBJECT_STORE_ACCESS_KEY_ID=admin
       - 'OBJECT_STORE_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_MINIO}'
       - TRIGGER_BOOTSTRAP_ENABLED=1
@@ -325,7 +325,7 @@ services:
     # Publish only the authenticated S3 API on the private server interface.
     # Port 9001 (the MinIO console) is intentionally not published.
     ports:
-      - '${MINIO_PRIVATE_IP:-10.21.30.15}:${MINIO_PRIVATE_API_PORT:-9002}:9000'
+      - '${MINIO_PRIVATE_IP:-127.0.0.1}:${MINIO_PRIVATE_API_PORT:-9002}:9000'
     environment:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: '${SERVICE_PASSWORD_MINIO}'
@@ -382,7 +382,7 @@ services:
     # s2-lite has no authentication in this recipe. Bind it only to the
     # trusted private interface shared by Webapp and Worker hosts.
     ports:
-      - '${S2_PRIVATE_IP:-10.21.30.15}:${S2_PRIVATE_API_PORT:-4566}:80'
+      - '${S2_PRIVATE_IP:-127.0.0.1}:${S2_PRIVATE_API_PORT:-4566}:80'
     depends_on:
       s2-init:
         condition: service_completed_successfully
