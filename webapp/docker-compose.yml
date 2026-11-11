@@ -5,7 +5,7 @@
 
 services:
   webapp:
-    image: 'ghcr.io/triggerdotdev/trigger.dev:v4.5.4'
+    image: 'ghcr.io/triggerdotdev/trigger.dev:v4.8.3@sha256:54aa67fa90cd1fc88ce11ae670e6dbb8f12d2ba8b39e839e882d9e32bb8bdb1f'
     restart: unless-stopped
     depends_on:
       postgres:
@@ -70,6 +70,12 @@ services:
       - LLM_COST_TRACKING_ENABLED=true
       - LLM_PRICING_SEED_ON_STARTUP=true
       - EVENT_REPOSITORY_DEFAULT_STORE=clickhouse_v2
+      # Preserve legacy trace reads until task_events_v1 history is verified.
+      - 'EVENT_REPOSITORY_V1_REROUTE_ENABLED=${EVENT_REPOSITORY_V1_REROUTE_ENABLED:-0}'
+      # The 4.8.3 Logs view reads Search v2. Its writer and reader use the
+      # same ClickHouse as the events client through the upstream defaults.
+      - 'LOGS_SEARCH_DUAL_WRITE_ACTIVE=${LOGS_SEARCH_DUAL_WRITE_ACTIVE:-on}'
+      - TRIGGER_CLI_TAG=4.8.3
       - RUN_REPLICATION_ENABLED=1
       - 'RUN_REPLICATION_CLICKHOUSE_URL=http://${SERVICE_USER_CLICKHOUSE:-default}:${SERVICE_PASSWORD_64_CLICKHOUSE}@clickhouse:8123'
       - RUN_REPLICATION_LOG_LEVEL=info

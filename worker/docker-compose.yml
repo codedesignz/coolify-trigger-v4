@@ -4,7 +4,7 @@
 
 services:
   supervisor:
-    image: ghcr.io/triggerdotdev/supervisor:v4.5.4
+    image: ghcr.io/triggerdotdev/supervisor:v4.8.3@sha256:60808dded07c856481bd94ac0b6c64637dea828e57e918ca3ca270813feac74b
     restart: unless-stopped
     depends_on:
       - docker-proxy
@@ -18,6 +18,9 @@ services:
       TRIGGER_WORKLOAD_API_PORT_EXTERNAL: 8020
 
       TRIGGER_WARM_START_URL: ${TRIGGER_WARM_START_URL:-}
+      # An empty override would bypass the Supervisor's nullish fallback.
+      TRIGGER_WARM_START_DISPATCH_URL: ${TRIGGER_WARM_START_DISPATCH_URL:-${TRIGGER_WARM_START_URL:-}}
+      TRIGGER_WARM_START_VERIFY_ENABLED: ${TRIGGER_WARM_START_VERIFY_ENABLED:-false}
 
       DOCKER_HOST: tcp://docker-proxy:2375
       # Official Trigger.dev setting. Each ephemeral run container is created
@@ -32,7 +35,7 @@ services:
       DOCKER_REGISTRY_PASSWORD: ${DOCKER_REGISTRY_PASSWORD}
 
       DEBUG: 1
-      ENFORCE_MACHINE_PRESETS: 1
+      DOCKER_ENFORCE_MACHINE_PRESETS: 'true'
       TRIGGER_DEQUEUE_INTERVAL_MS: 1000
 
     healthcheck:

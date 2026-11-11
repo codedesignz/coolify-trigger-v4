@@ -1,10 +1,10 @@
-# Trigger.dev v4.5.4 on Coolify v4 with Traefik — **Split** Webapp & Worker
+# Trigger.dev v4.8.3 on Coolify v4 with Traefik
 
 This README explains how to deploy **Trigger v4** using **Coolify v4** with **Traefik**, separating the **Webapp** and the **Worker/Supervisor**. It also considers an existing **External Docker Registry**.
 
-For the running TriggerEU Prod instance, see the [production operations guide](docs/README.md).
+For the running TriggerEU Prod instance, see the [production operations guide](docs/README.md). For an existing installation, follow the [4.5.4 → 4.8.3 upgrade plan](docs/actualizacion-4.8.3.md) before applying these recipes.
 
-> Based on the official Trigger.dev `v4.5.4` Docker Compose template and adapted for Coolify. The Webapp is exposed through Traefik; S2 and the MinIO S3 API use bindings restricted to the server's private IP. Webapp, supervisor, SDK, build and CLI must use the same release line.
+> The recipes pin Webapp and Supervisor to `v4.8.3` and their multi-platform digests. Use SDK, build and CLI `4.8.3` when rebuilding tasks. S2 and the MinIO S3 API bind to the Webapp server's private IP. [Upstream release](https://github.com/triggerdotdev/trigger.dev/releases/tag/v4.8.3)
 
 ---
 
@@ -22,7 +22,7 @@ For the running TriggerEU Prod instance, see the [production operations guide](d
 
 - **Webapp**: exposed to Internet via Coolify's Traefik. Manages UI, API, worker group tokens, etc.
 - **Worker (Supervisor)**: **not** publicly exposed. Connects **outbound** to the Webapp via HTTPS (`TRIGGER_API_URL`) and executes workloads in ephemeral containers via Docker.
-- **Webapp internal services**: Postgres, Redis, ElectricSQL, S2 Lite (Realtime Streams v2), ClickHouse 26.2 (metrics), MinIO (object storage). ClickHouse uses the official image and version against which Trigger.dev develops and tests the v4.5 platform.
+- **Webapp internal services**: Postgres, Redis, ElectricSQL, S2 Lite (Realtime Streams v2), ClickHouse 26.2 (events and metrics), MinIO (object storage).
 - **Run event store**: new task events/timeline/spans are written to ClickHouse
   with `EVENT_REPOSITORY_DEFAULT_STORE=clickhouse_v2`. This is required for
   `llm_metrics` and the dashboard Models/AI metrics views that aggregate GenAI
@@ -34,7 +34,7 @@ For the running TriggerEU Prod instance, see the [production operations guide](d
 
 1. **Create "Docker Compose (Raw)" resource** in Coolify for the **Webapp** and paste the **`webapp`** YAML below. ClickHouse defaults to `CLICKHOUSE_STORAGE_INIT_MODE=fresh`; legacy Bitnami data is preserved but not copied unless migration is explicitly enabled.
 2. In the webapp resource **Environment**:
-   - Generate secrets with Magic Vars (`SERVICE_PASSWORD_*`) or paste your own values.
+   - For a new resource, generate secrets with Magic Vars (`SERVICE_PASSWORD_*`) or set your own values. `SERVICE_PASSWORD_ENCRYPTION` must provide exactly 32 UTF-8 bytes. Preserve the existing values when updating a resource.
    - Fill in **External Registry** credentials (`DEPLOY_REGISTRY_*`) if you'll use deploys from the Webapp.
    - For bundled s2-lite, keep `REALTIME_STREAMS_S2_ACCESS_TOKEN=ignored`, `REALTIME_STREAMS_S2_SKIP_ACCESS_TOKENS=true` and `TRIGGER_RUNNER_NETWORK=supervisor`.
    - Set `S2_PRIVATE_IP=10.21.30.15` and `S2_PRIVATE_API_PORT=4566`, or replace them with the private address assigned to the Webapp server. The recipe derives `REALTIME_STREAMS_S2_ENDPOINT=http://10.21.30.15:4566/v1`. Because bundled s2-lite skips authentication, expose this port only on a trusted private network.
@@ -49,9 +49,10 @@ For the running TriggerEU Prod instance, see the [production operations guide](d
    - `MANAGED_WORKER_SECRET=<same as in Webapp>`
    - `TRIGGER_RUNNER_NETWORK=supervisor` (the external network used by the Worker container)
    - `DOCKER_RUNNER_NETWORKS=supervisor` (official Trigger.dev setting used when creating each task container)
+   - `TRIGGER_WARM_START_URL` (optional broker URL). Leave `TRIGGER_WARM_START_DISPATCH_URL` empty to use the same endpoint for dispatch.
 6. **Deploy or force-recreate** Worker after Webapp. Verify in the Webapp that the worker appears as **online**. Redeploying only Webapp does not update the network used by new task containers because `DOCKER_RUNNER_NETWORKS` is read when Supervisor starts.
 
-S2 and MinIO use the private endpoints `http://10.21.30.15:4566/v1` and `http://10.21.30.15:9002` by default, so task containers do not depend on resolving the Docker hostnames `s2` or `minio`. The Webapp server and every Worker host must be able to route to that private IP and both TCP ports. Keep `DOCKER_RUNNER_NETWORKS=supervisor`; this setting controls the local network of each workload container and must not contain a Coolify resource UUID. MinIO remains authenticated, its console port `9001` remains unexposed, and unauthenticated s2-lite must remain restricted to the trusted private network. If the route crosses an untrusted network, use private TLS or a VPN instead of exposing either service publicly.
+TriggerEU uses the private endpoints `http://10.21.30.15:4566/v1` and `http://10.21.30.15:9002`. Set the private IPs explicitly for a split deployment. The Webapp server and every Worker host must be able to route to that private IP and both TCP ports. `DOCKER_RUNNER_NETWORKS=supervisor` selects the workload bridge local to each Worker. MinIO requires authentication and publishes its S3 API. Restrict unauthenticated s2-lite to the trusted private network.
 
 ---
 
@@ -93,6 +94,8 @@ S2 and MinIO use the private endpoints `http://10.21.30.15:4566/v1` and `http://
   run events will not backfill `llm_metrics`.
 
 ## 🔄 Upgrade from v4.4.4
+
+This section records the earlier `v4.4.4` → `v4.5.4` storage upgrade. It applies to the recipes at that revision. For the current candidate, use the [4.5.4 → 4.8.3 plan](docs/actualizacion-4.8.3.md).
 
 Trigger.dev `v4.5.4` removes the legacy v3 engine. Inventory any v3 tasks sharing this tests instance and migrate them before upgrading.
 

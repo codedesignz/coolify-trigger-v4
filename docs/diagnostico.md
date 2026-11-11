@@ -68,6 +68,8 @@ docker logs --since 30m --tail 200 '<runner>'
 
 Si los errores afectan a la capacidad de ejecutar contenedores, revisa el journal de Docker con `journalctl -u docker --since '-30 min' -n 150 --no-pager`, el espacio e inodos con `df -h` y `df -i`, y la presión de CPU y memoria en cAdvisor y node-exporter. Si el problema apunta a warm starts, comprueba `https://trigger-warm-broker.sidicom.es/healthz` y los logs del recurso `trigger-warm-broker` en `10.21.30.15`. La sonda interna equivalente es `http://127.0.0.1:18080/healthz` en ese host.
 
+Para investigar un warm start concreto, consulta desde Supervisor `/healthz` y comprueba conexión a Redis, runners idle y el delta de hits, misses y errores de entrega durante el intervalo. Correlaciona deployment, preset y el ID del runner de ambos runs. Si la API del broker está sana y no hay hits, verifica su política de placement tags y el registro del runner idle. En 4.8.3 revisa también `TRIGGER_WARM_START_DISPATCH_URL`. El [plan de actualización](actualizacion-4.8.3.md#recuperación) indica cómo operar temporalmente en cold start.
+
 ## Dependencias de Webapp
 
 | Componente | Señal y comprobación inicial |
@@ -75,7 +77,7 @@ Si los errores afectan a la capacidad de ejecutar contenedores, revisa el journa
 | PostgreSQL | Si Webapp falla al iniciar, migrar o leer datos, revisa el estado del contenedor y sus logs. El healthcheck usa `pg_isready`. |
 | Redis | Para errores de conexión o dequeuing, correlaciona Webapp y Supervisor con los logs de Redis y comprueba `redis-cli ping` dentro de Redis. |
 | ElectricSQL | Si falla la sincronización de datos, revisa PostgreSQL y el healthcheck `/v1/health` de Electric en su puerto interno `3000`. |
-| ClickHouse | Para errores de ingestión, timeline o métricas de IA, revisa el estado de salud en Docker, los logs de ClickHouse y Webapp y el valor de `EVENT_REPOSITORY_DEFAULT_STORE` en Coolify. `clickhouse_v2` habilita el almacén de eventos que usan las métricas de IA para runs nuevos. Si el síntoma afecta al histórico, comprueba el modo `fresh` descrito en la [guía de actualización](../README.md#-upgrade-from-v444). |
+| ClickHouse | Para errores de ingestión, timeline o métricas de IA, revisa el estado de salud en Docker, los logs de ClickHouse y Webapp y `EVENT_REPOSITORY_DEFAULT_STORE=clickhouse_v2`. Tras 4.8.3, si existe la traza del run pero falta en Logs, contrasta `task_events_v2` con `task_events_search_v2`, el dual-write y el intervalo histórico copiado. Consulta la [preservación de atributos y búsqueda](actualizacion-4.8.3.md#ensayo-de-preservación-de-atributos-y-búsqueda). |
 | S2 | Si fallan Sessions o streams, revisa logs de Webapp y S2, configuración del endpoint y conectividad privada desde ambos hosts. |
 | MinIO | Si falla un snapshot de `chat.agent`, comprueba salud HTTP, URL privada anunciada y los errores de autorización de la petición real. |
 

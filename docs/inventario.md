@@ -2,6 +2,8 @@
 
 Inventario verificado por SSH como `root` el 11 de noviembre de 2026. Los nombres de contenedores de aplicaciones pueden incorporar un sufijo nuevo en cada despliegue. Para localizarlos, usa el ID estable del recurso y las etiquetas de Compose.
 
+Las imágenes de las tablas son las observadas en producción. Las recetas versionadas son las candidatas del [plan de actualización a 4.8.3](actualizacion-4.8.3.md).
+
 | Host | Función | Sistema | Capacidad | Disco raíz en la revisión |
 | --- | --- | --- | --- | --- |
 | `10.21.30.15` · `Tn-Trigger` | Webapp, servicios de datos y aplicaciones auxiliares | Ubuntu 24.04.5 LTS, Docker 29.9.2, Compose 5.6.1 | 8 vCPU, 30 GiB de RAM | ext4, 226 GiB, 72 % usado, 61 GiB libres |
@@ -27,7 +29,7 @@ La red Compose `sk040488wkgwcgo84w8k4gks` conecta el stack y el proxy PostgreSQL
 
 | Recurso auxiliar | Dónde mirar |
 | --- | --- |
-| `trigger-warm-broker` · `ccem9d0rxqlcc2v8kzvkrob8` | Contenedor `warm-start-broker-*`. Archivos en `/data/coolify/applications/ccem9d0rxqlcc2v8kzvkrob8/`. El supervisor usa `https://trigger-warm-broker.sidicom.es`. `/healthz` responde por HTTPS y en `http://127.0.0.1:18080/healthz` desde `.15`. |
+| `trigger-warm-broker` · `ccem9d0rxqlcc2v8kzvkrob8` | Contenedor `warm-start-broker-*`, versión `0.1.0` con backend Redis. Archivos en `/data/coolify/applications/ccem9d0rxqlcc2v8kzvkrob8/`. El supervisor usa `https://trigger-warm-broker.sidicom.es`. `/healthz` responde por HTTPS y en `http://127.0.0.1:18080/healthz` desde `.15`. |
 | `trigger-deploy-agent` · `xc000kcskwwosc00k0wcs8s0` | Contenedores `agent-*` y `rabbitmq-*`. El agente recibe tráfico de Traefik para `https://trigger-deploy.sidicom.es`. Revisa este recurso si falla la automatización de despliegues. |
 | Proxy TCP PostgreSQL · `fc4ws4sogks04c84w8ow8sks` | Contenedor Nginx `fc4ws4sogks04c84w8ow8sks-proxy` en Coolify, configuración en `/data/coolify/databases/fc4ws4sogks04c84w8ow8sks/proxy/nginx.conf`. Publica `5432/tcp` en las interfaces IPv4 e IPv6 del host y reenvía a `postgres-sk040488wkgwcgo84w8k4gks:5432`. El alcance desde otras redes depende de los controles de red. |
 | Registro de imágenes | La Webapp usa `DEPLOY_REGISTRY_HOST=10.21.30.14:5000` con namespace `trigger`. El servicio de registro está fuera de los dos hosts inventariados. |

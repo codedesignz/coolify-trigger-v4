@@ -1,6 +1,6 @@
 # Operación de TriggerEU Prod
 
-Trigger.dev funciona como una sola instancia `v4.5.4` repartida entre dos servidores gestionados por Coolify. `Tn-Trigger` (`10.21.30.15`) aloja la Webapp y los datos. `Tn-Trigger-Worker1` (`10.21.30.16`) ejecuta el supervisor y los contenedores de tareas.
+La última revisión de TriggerEU Prod observó `v4.5.4` en una sola instancia repartida entre dos servidores gestionados por Coolify. `Tn-Trigger` (`10.21.30.15`) aloja la Webapp y los datos. `Tn-Trigger-Worker1` (`10.21.30.16`) ejecuta el supervisor y los contenedores de tareas.
 
 | Si necesitas… | Abre |
 | --- | --- |
@@ -8,6 +8,7 @@ Trigger.dev funciona como una sola instancia `v4.5.4` repartida entre dos servid
 | Investigar una caída de la API, una ejecución en cola o un fallo de Sessions | [Guía de diagnóstico](diagnostico.md) |
 | Consultar logs de la Webapp o medir CPU, memoria, disco y contenedores | [Observabilidad en Grafana](observabilidad.md) |
 | Preparar un despliegue o revisar las recetas | [README de despliegue](../README.md) |
+| Actualizar a `v4.8.3` y ensayar el rollback | [Plan de actualización](actualizacion-4.8.3.md) |
 
 ## Topología
 
