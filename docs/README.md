@@ -9,6 +9,7 @@ La última revisión de TriggerEU Prod observó `v4.5.4` en una sola instancia r
 | Consultar logs de la Webapp o medir CPU, memoria, disco y contenedores | [Observabilidad en Grafana](observabilidad.md) |
 | Preparar un despliegue o revisar las recetas | [README de despliegue](../README.md) |
 | Actualizar a `v4.8.3` y ensayar el rollback | [Plan de actualización](actualizacion-4.8.3.md) |
+| Preparar la ventana de `4.8.3` con Coolify y SSH | [Guía del corte](ventana-4.8.3.md) |
 
 ## Topología
 
