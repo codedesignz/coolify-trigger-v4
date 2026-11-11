@@ -2,6 +2,8 @@
 
 This README explains how to deploy **Trigger v4** using **Coolify v4** with **Traefik**, separating the **Webapp** and the **Worker/Supervisor**. It also considers an existing **External Docker Registry**.
 
+For the running TriggerEU Prod instance, see the [production operations guide](docs/README.md).
+
 > Based on the official Trigger.dev `v4.5.4` Docker Compose template and adapted for Coolify. The Webapp is exposed through Traefik; S2 and the MinIO S3 API use bindings restricted to the server's private IP. Webapp, supervisor, SDK, build and CLI must use the same release line.
 
 ---
@@ -212,7 +214,7 @@ Do not roll the Webapp back to `v4.4.4` after its database migrations have run u
     Webapp logs for ClickHouse insert/migration errors and verify the Worker
     has `OTEL_EXPORTER_OTLP_ENDPOINT=https://<webapp-domain>/otel`.
 - **`network supervisor declared as external, but could not be found`**:
-  - Deploy the updated Webapp stack first; it owns and creates the attachable network. Then deploy the Worker, which intentionally references the same network as external. If Webapp is already deployed, verify it with `docker network inspect supervisor` before retrying Worker.
+  - Run `docker network inspect supervisor` on the Worker host. In a split deployment, the Worker Compose references an external bridge network on that host. Provision the bridge there before deploying the Worker. The Webapp Compose creates its local bridge on the Webapp host.
 - **CORS/origins**:
   - Always use the same domain in `APP_ORIGIN/LOGIN_ORIGIN/API_ORIGIN` (in this README they're derived from `SERVICE_FQDN_WEBAPP_3000`).
 
