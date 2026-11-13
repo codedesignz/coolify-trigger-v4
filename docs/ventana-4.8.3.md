@@ -18,6 +18,12 @@ Ruta operativa con **Coolify y SSH** para `teamnet-trigger-eu / production`. El 
 
 El archivo PostgreSQL de las 03:00 y el ZIP de las 09:09 corresponden a fronteras distintas. Sirven como copias de referencia para el ensayo. La ventana necesita sus propios artefactos del mismo corte.
 
+### Comprobación del 13 de noviembre de 2026
+
+A las 11:08 CET, Webapp y Supervisor seguían sanos en `4.5.4`. PostgreSQL `16.15` ocupaba 51,9 GiB y tenía dos slots lógicos activos, cero bloqueos y cero backups en ejecución. ClickHouse seguía en `26.2.19.43` con Goose `35`. Había **96,6 GiB libres** en el volumen de recuperación y **59,8 GiB libres** en el disco activo de Tn-Trigger. Las imágenes fijadas de Webapp y Supervisor `4.8.3` aún no estaban en la caché de sus hosts.
+
+En los últimos 15 minutos se crearon cuatro runs de producción y diez de staging. Ninguno seguía pendiente o en ejecución en la lectura. Quedaban ocho registros anteriores a un día en `PENDING` o `DEQUEUED`, y `deploy_queue` tenía cero listos y cero sin confirmar. Grafana registró dos HTTP `502` en OTLP a las 10:56 CET. Las 368 respuestas de los últimos cinco minutos fueron `200`. [Logs de TriggerEU](https://grafana.sidicom.es/d/ceexp8uiaujgga/coolify-logs-explorer?var-project=TriggerEU&var-environment=Prod)
+
 ## Punto de recuperación con los accesos actuales
 
 Guarda el respaldo del corte en un directorio privado y único de `/mnt/HC_Volume_107434992`, separado de los datos activos de Docker. Captura PostgreSQL, ClickHouse y los volúmenes auxiliares con los escritores detenidos y verifica los archivos desde ese montaje antes del DDL. El respaldo del corte queda disponible para revertir la actualización mientras el volumen sea accesible. Los snapshots y backups de servidores de Hetzner excluyen los Cloud Volumes adjuntos. [Cloud Volumes de Hetzner](https://docs.hetzner.com/cloud/volumes/overview/)
@@ -149,6 +155,8 @@ Localiza el ZIP en el subdirectorio `backups` del punto de montaje de `${project
 
 El canario acordado es **Fibra → Staging → `hello-world`**. El 11 de noviembre, el despliegue `current` de ese entorno era `20261103.5` con CLI y SDK `4.5.4`, proyecto `proj_tgaeqppbuwskratyvwwu` y commit `6eff19cdc9a48871a6b14f6e715583ab0857fbc1` de `trigger-simple`. En ese commit `src/trigger/index.ts` exporta la tarea de `src/trigger/example.ts`. Lánzala con `{}` y confirma `COMPLETED_SUCCESSFULLY`, el mensaje `Hello, world!` en los logs y el resultado `{"message":"Hello, world!"}` tras la espera de cinco segundos. Registra la versión realmente ejecutada. Para validar el despliegue con 4.8.3, repite la comprobación con la nueva versión seleccionada explícitamente.
 
+El 13 de noviembre, `current` pasó a `20261112.1` (CLI y SDK `4.5.4`, commit `12618d7ce44090cd3bc5373e0e943ca53bbd54a7`). El índice sigue incluyendo `hello-world` sin esquema de payload. Para probar el código ya revisado, selecciona explícitamente `20261103.5`, que sigue registrada como `DEPLOYED` con imagen referenciada. Comprueba que el registry sirve la imagen antes del canario.
+
 ### Cierre temporal de entradas
 
 En `.15`, Traefik observa `/data/coolify/proxy/dynamic` y `services-security.yaml` ya usa routers con `ipAllowList`. Durante la ventana, usa un archivo temporal con reglas `Host` para `trigger.sidicom.es` y `trigger-deploy.sidicom.es`. Da prioridad sobre las rutas ordinarias al servicio `noop@file` sin servidores, que devuelve `503`. Durante el drenaje y el canario, configura una ruta de prioridad superior hacia el `@docker` efectivo, con las opciones TLS y los middlewares del recurso. Limita el acceso a los orígenes necesarios en cada fase y dominio. Mantén la ruta de `503` durante las recreaciones para cubrir un cambio de nombre del servicio. Verifica el cierre o la redirección en HTTP, el rechazo desde un origen ordinario en HTTPS y las sondas de API y OTLP desde los orígenes autorizados. Retira el archivo temporal al reabrir y verifica las rutas originales. [Prioridad de rutas](https://doc.traefik.io/traefik/reference/routing-configuration/http/routing/rules-and-priority/) · [Lista de IP](https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/ipallowlist/) · [Servicio de mantenimiento](https://doc.traefik.io/traefik/getting-started/faq/#xxx-instead-of-404)
@@ -159,7 +167,7 @@ Comprueba si hay consumidores del PostgreSQL publicado y coordina su pausa. Dura
 
 ## Backfill de Search v2
 
-Con la Webapp anterior detenida y el punto de recuperación verificado, ejecuta Goose sobre el Compose generado, la `.env` de Coolify y un override privado de la imagen. Mantén las variables `project`, `ch`, `cut_id` y `cut_dir` del bloque de captura. Verifica antes de la ventana que la imagen está disponible y que hay espacio para las tablas temporales, sus fusiones y la nueva proyección de búsqueda. [Comando probado en el clon](actualizacion-4.8.3.md#ensayo-de-preservación-de-atributos-y-búsqueda)
+Descarga la imagen fijada de Webapp 4.8.3 en Tn-Trigger antes de ejecutar Goose y el mapper de Search v2. La descarga puede hacerse mientras TriggerEU está en servicio. Coolify descarga la imagen del Supervisor cuando se despliega su receta. Con la Webapp anterior detenida y el punto de recuperación verificado, ejecuta Goose sobre el Compose generado, la `.env` de Coolify y un override privado de la imagen. Mantén las variables `project`, `ch`, `cut_id` y `cut_dir` del bloque de captura. Verifica que hay espacio para las tablas temporales, sus fusiones y la nueva proyección de búsqueda. [Comando probado en el clon](actualizacion-4.8.3.md#ensayo-de-preservación-de-atributos-y-búsqueda)
 
 ```bash
 resource_dir="/data/coolify/services/$project"
