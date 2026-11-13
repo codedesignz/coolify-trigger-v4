@@ -195,6 +195,8 @@ El release posterior documenta correcciones para la ruta Logs del panel, el offl
 
 ## Recuperación
 
+Para reanudar los consumidores de PostgreSQL tras una restauración física, usa el [procedimiento de recuperación de Electric y de la réplica de runs](ventana-4.8.3.md#recuperación-de-electric-y-de-la-réplica-de-runs).
+
 - **Antes de cambios en los datos**. Detén la candidata, restituye revisión, digests y variables anteriores en los mismos recursos y confirma que los journals y datos siguen en la frontera previa. Arranca primero Webapp, luego Supervisor y verifica API, colas y un canario.
 - **Si la falla está limitada a warm starts**. En el recurso del worker vacía `TRIGGER_WARM_START_URL` y `TRIGGER_WARM_START_DISPATCH_URL` y recrea Supervisor. Comprueba un cold run y que la cola baja. Conserva las variables anteriores para volver a activar el broker tras el diagnóstico.
 - **Después de aplicar migraciones o aceptar escrituras nuevas**. Pausa entradas, detén writers y conserva una copia del estado fallido y de los trabajos posteriores al corte. Decide entre corregir hacia delante o restaurar. Para volver a 4.5.4 restaura PostgreSQL y ClickHouse de la misma frontera y el estado asociado que haga falta para coherencia de colas, snapshots y sesiones. Apunta las recetas previas a los datos restaurados. La reversión de `056` recrea objetos vacíos, y cambiar solo el tag deja los esquemas modificados. Arranca Webapp y Supervisor previos, verifica histórico y canarios y reconcilia los runs y entregas posteriores al punto de recuperación antes de reabrir tráfico. Restituye `TRIGGER_CLI_VERSION=4.4.4` en el agente si se cambió y recupera los despliegues de tareas anteriores según el inventario.
