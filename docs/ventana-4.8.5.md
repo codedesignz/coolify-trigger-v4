@@ -37,12 +37,22 @@ du -h "$cut/postgres.dump"
 printf 'Respaldo verificado en %s\n' "$cut"
 ```
 
+El 15 de noviembre se obtuvo un dump de **6,9 GiB** en `/mnt/HC_Volume_107434992/trigger-eu-rollback/trigger-pg-pre485-20261115T092918Z.wu1dTSNz/postgres.dump`. La copia arrancó a las **10:29:18 CET** y quedó verificada a las **10:43:20 CET**. `pg_restore` leyó todo el archivo y `sha256sum -c` validó el dump, los objetos globales y el listado. La API siguió respondiendo `200` en las sondas y Prisma conservaba 856 migraciones aplicadas y ninguna incompleta.
+
 ## Despliegue y validación
 
 1. Con el respaldo verificado, revisa los runs activos y los jobs del agente antes de elegir el momento del cambio. Guarda el Source Compose actual de Webapp en la ubicación restringida de operación. Revisa en Coolify que el cambio de Git del Worker se despliegue después de Webapp.
-2. En `teamnet-trigger-eu / production`, edita el **Source Compose** del mismo recurso Webapp (`sk040488wkgwcgo84w8k4gks`). Cambia solo `services.webapp.image` por `ghcr.io/triggerdotdev/trigger.dev:v4.8.5@sha256:6e6d38a94699b93a9be63deb5a8646d5c36fc0e5af60fb9047c5d5ec16e3e92c` y `TRIGGER_CLI_TAG` por `4.8.5`. Conserva los secretos, el valor de `CENTS_PER_RUN`, las redes y los volúmenes del recurso. Revisa el **Deployable Compose**. Si se recrea el recurso completo, comprueba que el comando conserva las imágenes de las dependencias ya observadas. Evita **Pull Latest Images & Restart** para que los tags móviles de PostgreSQL, Redis y MinIO no amplíen el cambio.
+2. En `teamnet-trigger-eu / production`, abre el recurso Webapp (`sk040488wkgwcgo84w8k4gks`) y elige **Configuration → General → Edit Compose File → Source Compose**. Aplica las entradas de la tabla de abajo a los bloques existentes. Conserva los secretos, `CENTS_PER_RUN=0.03867`, las redes y los volúmenes del recurso. Revisa el **Deployable Compose** antes de desplegar. **Deploy** opera sobre todo el recurso y puede recrear sus dependencias. Los digests de PostgreSQL, Redis y MinIO fijan las mismas imágenes observadas antes del cambio. [Operación de servicios en Coolify](https://coolify.io/docs/services/how-services-work)
 3. Despliega Webapp y comprueba el arranque de PostgreSQL, Redis, Electric y ClickHouse si Coolify los recrea. Exige Webapp sana, `/healthcheck` 200, Prisma 868 sin fallidas o incompletas, ambos slots activos y Goose 056.
-4. En `trigger-worker1` (`z0wos4o0kg8osw40wc4kkkcg`), despliega la revisión Git que fija el [Compose de Worker](../worker/docker-compose.yml). Comprueba healthcheck, heartbeat y acceso a Docker, broker, registry, S2 y MinIO. Lanza el canario acordado con una versión de tarea ya publicada y verifica estado, salida, logs y coste.
+4. En `trigger-worker1` (`z0wos4o0kg8osw40wc4kkkcg`), despliega la revisión Git que fija el [Compose de Worker](../worker/docker-compose.yml). Comprueba que el socket proxy conserva la imagen observada `tecnativa/docker-socket-proxy:latest@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459`. Verifica healthcheck, heartbeat y acceso a Docker, broker, registry, S2 y MinIO. Lanza el canario acordado con una versión de tarea ya publicada y verifica estado, salida, logs y coste.
 5. Cuando toque actualizar el agente, fija `TRIGGER_CLI_VERSION=4.8.5` solo en `trigger-deploy-agent` y despliega el mismo recurso. Comprueba su consumidor RabbitMQ y publica una versión canaria en Fibra Staging con CLI, SDK y build `4.8.5`. Prueba esa versión antes de promoverla. Las imágenes de tareas que ya estaban publicadas conservan su Node.js hasta que se reconstruyan.
+
+| Entrada en Source Compose | Valor |
+| --- | --- |
+| `webapp.image` | `ghcr.io/triggerdotdev/trigger.dev:v4.8.5@sha256:6e6d38a94699b93a9be63deb5a8646d5c36fc0e5af60fb9047c5d5ec16e3e92c` |
+| `webapp.environment` | `TRIGGER_CLI_TAG=4.8.5` |
+| `postgres.image` | `postgres:16-alpine@sha256:f377d590e5474681d4d7838635031a2b50647923b7abfa803ce9b5ff35d5c663` |
+| `redis.image` | `redis:7@sha256:2e3eb11462c4e3759e6972678dd051d150ff54b1e60714b3c33b701260172a90` |
+| `minio.image` | `bitnamilegacy/minio:latest@sha256:451fe6858cb770cc9d0e77ba811ce287420f781c7c1b806a386f6896471a349c` |
 
 Si Webapp no queda sana, detén el avance y comprueba el estado exacto de Prisma y los bloqueos. Conserva las revisiones e imágenes anteriores. Si hubo migraciones, comprueba la compatibilidad del esquema y del estado escrito antes de volver a `4.8.3`. Para una recuperación con el dump, ensaya primero una restauración aislada y reconcilia PostgreSQL con los runs y colas posteriores a la instantánea. [Recuperación y evidencia del corte anterior](ventana-4.8.3.md)
