@@ -64,3 +64,17 @@ Webapp `4.8.5` arrancó el 15 de noviembre a las **10:55:29 CET** con el digest 
 Prisma pasó de **856 a 868** migraciones, sin incompletas ni índices nuevos inválidos. Drizzle conservó 9 migraciones y ClickHouse registró Goose `056` sobre el volumen activo `clickhouse-data-v26-2` con el marcador `fresh`. Los slots de Electric y de runs estaban activos. Tras el arranque se observaron tres runs ordinarios completados. Una muestra coincidió entre PostgreSQL y ClickHouse en estado y coste, con 78 eventos en Search v2.
 
 Supervisor seguía sano en `4.8.3`, con heartbeats y acceso al broker, Docker, registry, S2 y MinIO. La rama `main` que usa el recurso de Worker contiene la receta candidata desde `db8b9c1`. El digest que resuelve `latest` del proxy Docker coincidió con la imagen efectiva antes del siguiente despliegue.
+
+## Validación del Supervisor
+
+Supervisor `4.8.5` arrancó el 15 de noviembre a las **11:03:32 CET** desde `00c61b2`, con el digest previsto, Node.js `24.22.3` y cero reinicios. El proxy Docker mantuvo el digest anterior. El Supervisor nuevo se registró en `bootstrap` a las **11:03:35 CET** y siguió enviando heartbeats. Respondieron Webapp, Docker, broker y MinIO. Las sondas a S2 y al registry devolvieron los códigos esperados.
+
+Los primeros tres runs ordinarios en Fibra, uno de producción y dos de staging, completaron con arranque en frío. Se contrastaron con los logs del Supervisor y una muestra coincidió entre PostgreSQL y ClickHouse en estado y coste (**USD 0.0003867 por invocación**), con eventos en Search v2. El siguiente paso es cambiar el agente a CLI `4.8.5` y probar la publicación. En la revisión el agente mantenía CLI `4.5.4` y `deploy_queue` de RabbitMQ tenía cero mensajes listos o sin confirmar y un consumidor.
+
+## Validación del agente de despliegue
+
+El contenedor de `trigger-deploy-agent` arrancó el 15 de noviembre a las **11:10:36 CET** con `TRIGGER_CLI_VERSION=4.8.5`, código `ecaba943` y cero reinicios. El agente y RabbitMQ estaban sanos, su ruta HTTPS `/health` devolvía `200` y `deploy_queue` tenía un consumidor y cero mensajes listos o sin confirmar. En la consulta posterior al arranque no había publicaciones nuevas, por lo que queda pendiente ejecutar un job.
+
+Para la prueba, toma como base el despliegue de Fibra Staging `20261112.1` (commit `12618d7` de `trigger-simple`). El manifiesto de ese commit declara `@trigger.dev/sdk`, `@trigger.dev/build` y `trigger.dev` en `4.4.4`. El despliegue registrado usó SDK y CLI `4.5.4`. Prepara una revisión dedicada con los tres paquetes y el lockfile alineados en `4.8.5` antes de enviar el job. El agente instala dependencias y ejecuta el CLI configurado en CI, donde el chequeo de versiones puede abortar si hay diferencias. [Chequeo de versiones de CLI 4.8.5](https://github.com/triggerdotdev/trigger.dev/blob/v4.8.5/packages/cli-v3/src/commands/update.ts)
+
+Usa un job individual del agente con `projectRef=proj_tgaeqppbuwskratyvwwu`, `environment=staging` y la rama dedicada. El comando del agente promociona la versión en Staging. Reserva esa prueba para el momento en que Fibra Staging pueda recibir el nuevo despliegue. El flujo genérico de `stage` también publica en otros entornos. Comprueba el job, la versión desplegada y la ejecución de `hello-world`.

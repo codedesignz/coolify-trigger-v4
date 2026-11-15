@@ -32,7 +32,7 @@ La red Compose `sk040488wkgwcgo84w8k4gks` conecta el stack y el proxy PostgreSQL
 | Recurso auxiliar | Dónde mirar |
 | --- | --- |
 | `trigger-warm-broker` · `ccem9d0rxqlcc2v8kzvkrob8` | Contenedor `warm-start-broker-*`, versión `0.1.0` con backend Redis. Archivos en `/data/coolify/applications/ccem9d0rxqlcc2v8kzvkrob8/`. El supervisor usa `https://trigger-warm-broker.sidicom.es`. `/healthz` responde por HTTPS y en `http://127.0.0.1:18080/healthz` desde `.15`. |
-| `trigger-deploy-agent` · `xc000kcskwwosc00k0wcs8s0` | Contenedores `agent-*` y `rabbitmq-*`. El agente recibe tráfico de Traefik para `https://trigger-deploy.sidicom.es`. Revisa este recurso si falla la automatización de despliegues. |
+| `trigger-deploy-agent` · `xc000kcskwwosc00k0wcs8s0` | Contenedores `agent-*` y `rabbitmq-*`. El agente recibe tráfico de Traefik para `https://trigger-deploy.sidicom.es`. El 15 de noviembre quedó configurado con `TRIGGER_CLI_VERSION=4.8.5`. [Validación del agente](ventana-4.8.5.md#validación-del-agente-de-despliegue) |
 | Proxy TCP PostgreSQL · `fc4ws4sogks04c84w8ow8sks` | Contenedor Nginx `fc4ws4sogks04c84w8ow8sks-proxy` en Coolify, configuración en `/data/coolify/databases/fc4ws4sogks04c84w8ow8sks/proxy/nginx.conf`. Publica `5432/tcp` en las interfaces IPv4 e IPv6 del host y reenvía a `postgres-sk040488wkgwcgo84w8k4gks:5432`. El alcance desde otras redes depende de los controles de red. |
 | Registro de imágenes | La Webapp usa `DEPLOY_REGISTRY_HOST=10.21.30.14:5000` con namespace `trigger`. El servicio de registro está fuera de los dos hosts inventariados. |
 
@@ -58,13 +58,13 @@ En el mismo proyecto y entorno de Coolify, busca la aplicación `trigger-worker1
 
 | Servicio | Imagen o nombre | Rol y acceso |
 | --- | --- | --- |
-| `supervisor` | `ghcr.io/triggerdotdev/supervisor:v4.8.3` | Registra el worker y toma ejecuciones mediante `TRIGGER_API_URL=https://trigger.sidicom.es`. Envía OTLP a `https://trigger.sidicom.es/otel`. La API interna para workloads responde en `supervisor:8020/health`. |
+| `supervisor` | `ghcr.io/triggerdotdev/supervisor:v4.8.5` | Registra el worker y toma ejecuciones mediante `TRIGGER_API_URL=https://trigger.sidicom.es`. Envía OTLP a `https://trigger.sidicom.es/otel`. La API interna para workloads responde en `supervisor:8020/health`. |
 | `docker-proxy` | `tecnativa/docker-socket-proxy:latest` | El supervisor usa `DOCKER_HOST=tcp://docker-proxy:2375`. El proxy monta `/var/run/docker.sock` en solo lectura y permite al supervisor pedir a Docker que cree runners. |
 | Runners | `runner-*` | Contenedores de tareas en la red local `supervisor`. En la revisión, los activos usaban imágenes de `10.21.30.14:5000/trigger/…` para `staging` y `production`. Para investigar pulls, contrasta el registry de la imagen concreta con `DOCKER_REGISTRY_URL`, que figura como `registry.sidicom.es` en el supervisor. |
 
 El supervisor y los runners comparten la red bridge local `supervisor`, seleccionada por `DOCKER_RUNNER_NETWORKS=supervisor`. La red del mismo nombre en `.15` es independiente. El supervisor y `docker-proxy` comparten además la red interna `z0wos4o0kg8osw40wc4kkkcg_docker-proxy`. Los puertos `8020` y `2375` carecen de publicación en el host. `8020` es el puerto de la API en uso, aunque los metadatos de la imagen del supervisor declaran `8000/tcp`.
 
-La validación del 13 de noviembre confirmó el digest de Supervisor `4.8.3`, el registro en el grupo `bootstrap` y el acceso desde el contenedor a Docker, Webapp, el broker, el registry, S2 y MinIO. [Evidencia del despliegue](ventana-4.8.3.md#validación-del-supervisor-tras-el-despliegue)
+La validación del 15 de noviembre confirmó el digest de Supervisor `4.8.5`, el registro en el grupo `bootstrap`, la conectividad a sus servicios y runs completados en Fibra. [Evidencia del despliegue](ventana-4.8.5.md#validación-del-supervisor)
 
 Los runners activos cambian con la actividad. En el momento de la revisión también había contenedores `runner-*` históricos en estado `exited`. Para evaluar un fallo, correlaciona el run concreto y su hora de salida.
 
