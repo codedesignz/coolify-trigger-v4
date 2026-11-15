@@ -60,6 +60,8 @@ services:
       - 'OBJECT_STORE_BASE_URL=http://${MINIO_PRIVATE_IP:-127.0.0.1}:${MINIO_PRIVATE_API_PORT:-9002}'
       - OBJECT_STORE_ACCESS_KEY_ID=admin
       - 'OBJECT_STORE_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_MINIO}'
+      # Fixed invocation cost in USD cents, separate from compute and LLM cost.
+      - 'CENTS_PER_RUN=${CENTS_PER_RUN:-0}'
       - TRIGGER_BOOTSTRAP_ENABLED=1
       - TRIGGER_BOOTSTRAP_WORKER_GROUP_NAME=bootstrap
       - TRIGGER_BOOTSTRAP_WORKER_TOKEN_PATH=/home/node/shared/worker_token

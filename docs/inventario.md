@@ -1,6 +1,6 @@
 # Inventario de producción
 
-Inventario verificado por SSH como `root` el 11 de noviembre de 2026. Los nombres de contenedores de aplicaciones pueden incorporar un sufijo nuevo en cada despliegue. Para localizarlos, usa el ID estable del recurso y las etiquetas de Compose.
+Inventario verificado por SSH como `root` el 11 de noviembre de 2026. Las secciones de Webapp y Worker recogen también los despliegues del 13 de noviembre. Los nombres de contenedores de aplicaciones pueden incorporar un sufijo nuevo en cada despliegue. Para localizarlos, usa el ID estable del recurso y las etiquetas de Compose.
 
 Las imágenes de las tablas son las observadas en producción. Las recetas versionadas son las candidatas del [plan de actualización a 4.8.3](actualizacion-4.8.3.md).
 
@@ -17,13 +17,15 @@ En Coolify, busca el proyecto `teamnet-trigger-eu`, entorno `production`, y el r
 
 | Servicio | Imagen en ejecución | Rol y acceso |
 | --- | --- | --- |
-| `webapp` | `ghcr.io/triggerdotdev/trigger.dev:v4.5.4` | UI, API y recepción de OTLP. Traefik enruta `https://trigger.sidicom.es` a `:3000`. Healthcheck en `/healthcheck`. |
-| `postgres` | `postgres:16-alpine` | Base transaccional. El stack usa `postgres:5432`. El proxy PostgreSQL de Coolify también publica el puerto del host. |
-| `redis` | `redis:7` | Colas y coordinación. Acceso interno `redis:6379`. |
+| `webapp` | `ghcr.io/triggerdotdev/trigger.dev:v4.8.3` | UI, API y recepción de OTLP. Traefik enruta `https://trigger.sidicom.es` a `:3000`. Healthcheck en `/healthcheck`. |
+| `postgres` | `postgres:16-alpine` (`16.16`) | Base transaccional. El stack usa `postgres:5432`. El proxy PostgreSQL de Coolify publica el puerto del host cuando está activo. |
+| `redis` | `redis:7` (`7.4.12`) | Colas y coordinación. Acceso interno `redis:6379`. |
 | `electric` | `electricsql/electric:1.2.4` | Sincronización de datos a partir de PostgreSQL. La Webapp usa `http://electric:3000`. Healthcheck en `/v1/health`. |
 | `clickhouse` | `clickhouse/clickhouse-server:26.2.19.43` | Eventos de runs, trazas y métricas de Trigger. HTTP `clickhouse:8123` y cliente nativo `:9000` dentro del stack. La Webapp usa `EVENT_REPOSITORY_DEFAULT_STORE=clickhouse_v2`. |
 | `s2` | `ghcr.io/s2-streamstore/s2:latest` | Realtime Streams v2 para Sessions y `chat.agent`. API en `http://10.21.30.15:4566/v1`, publicada como `10.21.30.15:4566 → 80/tcp`. El modo lite de la receta usa la red privada para el acceso sin token. |
 | `minio` | `bitnamilegacy/minio:latest` | Almacén S3 para objetos y snapshots. API en `http://10.21.30.15:9002`, publicada como `10.21.30.15:9002 → 9000/tcp`. Healthcheck en `/minio/health/live`. El puerto de consola `9001` queda en Docker. |
+
+La validación de Webapp del 13 de noviembre confirmó el digest de la receta 4.8.3, los journals de Prisma, Drizzle y Goose, y la replicación de Electric y de runs. El proxy PostgreSQL estaba detenido durante el corte. [Evidencia del despliegue](ventana-4.8.3.md#validación-de-webapp-tras-el-despliegue)
 
 La red Compose `sk040488wkgwcgo84w8k4gks` conecta el stack y el proxy PostgreSQL. S2 y MinIO también pertenecen a la red local `supervisor` en este host. Las tareas del worker consumen sus direcciones privadas publicadas.
 
@@ -56,11 +58,13 @@ En el mismo proyecto y entorno de Coolify, busca la aplicación `trigger-worker1
 
 | Servicio | Imagen o nombre | Rol y acceso |
 | --- | --- | --- |
-| `supervisor` | `ghcr.io/triggerdotdev/supervisor:v4.5.4` | Registra el worker y toma ejecuciones mediante `TRIGGER_API_URL=https://trigger.sidicom.es`. Envía OTLP a `https://trigger.sidicom.es/otel`. La API interna para workloads responde en `supervisor:8020/health`. |
+| `supervisor` | `ghcr.io/triggerdotdev/supervisor:v4.8.3` | Registra el worker y toma ejecuciones mediante `TRIGGER_API_URL=https://trigger.sidicom.es`. Envía OTLP a `https://trigger.sidicom.es/otel`. La API interna para workloads responde en `supervisor:8020/health`. |
 | `docker-proxy` | `tecnativa/docker-socket-proxy:latest` | El supervisor usa `DOCKER_HOST=tcp://docker-proxy:2375`. El proxy monta `/var/run/docker.sock` en solo lectura y permite al supervisor pedir a Docker que cree runners. |
 | Runners | `runner-*` | Contenedores de tareas en la red local `supervisor`. En la revisión, los activos usaban imágenes de `10.21.30.14:5000/trigger/…` para `staging` y `production`. Para investigar pulls, contrasta el registry de la imagen concreta con `DOCKER_REGISTRY_URL`, que figura como `registry.sidicom.es` en el supervisor. |
 
 El supervisor y los runners comparten la red bridge local `supervisor`, seleccionada por `DOCKER_RUNNER_NETWORKS=supervisor`. La red del mismo nombre en `.15` es independiente. El supervisor y `docker-proxy` comparten además la red interna `z0wos4o0kg8osw40wc4kkkcg_docker-proxy`. Los puertos `8020` y `2375` carecen de publicación en el host. `8020` es el puerto de la API en uso, aunque los metadatos de la imagen del supervisor declaran `8000/tcp`.
+
+La validación del 13 de noviembre confirmó el digest de Supervisor `4.8.3`, el registro en el grupo `bootstrap` y el acceso desde el contenedor a Docker, Webapp, el broker, el registry, S2 y MinIO. [Evidencia del despliegue](ventana-4.8.3.md#validación-del-supervisor-tras-el-despliegue)
 
 Los runners activos cambian con la actividad. En el momento de la revisión también había contenedores `runner-*` históricos en estado `exited`. Para evaluar un fallo, correlaciona el run concreto y su hora de salida.
 
