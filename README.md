@@ -1,10 +1,10 @@
-# Trigger.dev v4.8.3 on Coolify v4 with Traefik
+# Trigger.dev v4.8.5 on Coolify v4 with Traefik
 
 This README explains how to deploy **Trigger v4** using **Coolify v4** with **Traefik**, separating the **Webapp** and the **Worker/Supervisor**. It also considers an existing **External Docker Registry**.
 
-For the running TriggerEU Prod instance, see the [production operations guide](docs/README.md). For an existing installation, follow the [4.5.4 → 4.8.3 upgrade plan](docs/actualizacion-4.8.3.md) before applying these recipes.
+For the running TriggerEU Prod instance, see the [production operations guide](docs/README.md). For an existing installation on 4.8.3, follow the [4.8.3 → 4.8.5 upgrade runbook](docs/ventana-4.8.5.md). The [4.5.4 → 4.8.3 upgrade plan](docs/actualizacion-4.8.3.md) covers the earlier storage migration.
 
-> The recipes pin Webapp and Supervisor to `v4.8.3` and their multi-platform digests. Use SDK, build and CLI `4.8.3` when rebuilding tasks. S2 and the MinIO S3 API bind to the Webapp server's private IP. [Upstream release](https://github.com/triggerdotdev/trigger.dev/releases/tag/v4.8.3)
+> The recipes pin Webapp and Supervisor to `v4.8.5` and their multi-platform digests. Use SDK, build and CLI `4.8.5` when rebuilding tasks. S2 and the MinIO S3 API bind to the Webapp server's private IP. [Upstream release](https://github.com/triggerdotdev/trigger.dev/releases/tag/v4.8.5)
 
 ---
 
@@ -95,7 +95,7 @@ TriggerEU uses the private endpoints `http://10.21.30.15:4566/v1` and `http://10
 
 ## 🔄 Upgrade from v4.4.4
 
-This section records the earlier `v4.4.4` → `v4.5.4` storage upgrade. It applies to the recipes at that revision. For the current candidate, use the [4.5.4 → 4.8.3 plan](docs/actualizacion-4.8.3.md).
+This section records the earlier `v4.4.4` → `v4.5.4` storage upgrade. It applies to the recipes at that revision.
 
 Trigger.dev `v4.5.4` removes the legacy v3 engine. Inventory any v3 tasks sharing this tests instance and migrate them before upgrading.
 

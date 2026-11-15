@@ -4,6 +4,8 @@ El origen observado el 11 de noviembre de 2026 es `v4.5.4`. La ruta propuesta es
 
 ## Recetas y artefactos
 
+Las recetas de esta ventana corresponden a la revisión `d071ddd`. El [runbook de 4.8.5](ventana-4.8.5.md) documenta el siguiente salto desde 4.8.3.
+
 | Componente | Recurso de Coolify | Imagen candidata |
 | --- | --- | --- |
 | Webapp · `10.21.30.15` | `sk040488wkgwcgo84w8k4gks` | [`trigger.dev:v4.8.3`](../webapp/docker-compose.yml) |

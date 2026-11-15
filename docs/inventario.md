@@ -2,7 +2,7 @@
 
 Inventario verificado por SSH como `root` el 11 de noviembre de 2026. Las secciones de Webapp y Worker recogen también los despliegues del 13 de noviembre. Los nombres de contenedores de aplicaciones pueden incorporar un sufijo nuevo en cada despliegue. Para localizarlos, usa el ID estable del recurso y las etiquetas de Compose.
 
-Las imágenes de las tablas son las observadas en producción. Las recetas versionadas son las candidatas del [plan de actualización a 4.8.3](actualizacion-4.8.3.md).
+Las imágenes de las tablas son las observadas en producción. Las recetas candidatas del repositorio siguen el [runbook de 4.8.5](ventana-4.8.5.md).
 
 | Host | Función | Sistema | Capacidad | Disco raíz en la revisión |
 | --- | --- | --- | --- | --- |

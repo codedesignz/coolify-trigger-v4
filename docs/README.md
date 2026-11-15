@@ -10,6 +10,7 @@ TriggerEU Prod ejecuta Webapp y Supervisor `v4.8.3` desde el 13 de noviembre de 
 | Preparar un despliegue o revisar las recetas | [README de despliegue](../README.md) |
 | Actualizar a `v4.8.3` y ensayar el rollback | [Plan de actualización](actualizacion-4.8.3.md) |
 | Preparar la ventana de `4.8.3` con Coolify y SSH | [Guía del corte](ventana-4.8.3.md) |
+| Actualizar TriggerEU de `4.8.3` a `4.8.5` | [Ventana de 4.8.5](ventana-4.8.5.md) |
 
 ## Topología
 

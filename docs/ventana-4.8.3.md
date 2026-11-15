@@ -266,7 +266,7 @@ La verificación cerró a las **13:16:36 CET** con Goose en `055`. Los informes,
 
 Goose aplicó `056` a las **13:26:00 CET** del 13 de noviembre y retiró `task_events_search_v1` y `task_events_search_mv_v1`. Antes del cambio se comprobó el SHA-256 del ZIP del corte. A las **13:27:41 CET** quedaron verificados el journal, los **8.775.817 eventos raw** y las huellas por día de las **4.618.147 proyecciones de Search v2 en 114 días**. Las nueve consultas de lista, palabra y subcadena repitieron exactamente el contenido y el orden observados en `055`. La evidencia está en `trigger-cut-20261113T111348Z/goose-056` del volumen de Hetzner.
 
-La lectura al cierre encontró cero fusiones activas y cero mutaciones pendientes en raw y Search v2. Las dos bases temporales quedan disponibles para la comprobación del despliegue y se retiran antes de reabrir el tráfico. La pausa de fusiones es local al proceso de ClickHouse. Si Coolify lo recrea, se aplicará de nuevo la retención de sus tablas. El ZIP del corte conserva los datos originales. [Fusiones de MergeTree](https://clickhouse.com/docs/reference/statements/system#system-stop-merges)
+La lectura al cierre encontró cero fusiones activas y cero mutaciones pendientes en raw y Search v2. Se conservaron las dos bases temporales para verificar el despliegue. La pausa de fusiones es local al proceso de ClickHouse. Si Coolify lo recrea, se aplicará de nuevo la retención de sus tablas. El ZIP del corte conserva los datos originales. [Fusiones de MergeTree](https://clickhouse.com/docs/reference/statements/system#system-stop-merges)
 
 ### Despliegue de Webapp en Coolify
 
@@ -368,6 +368,14 @@ Quedaba un run de `brainet-assistant` en Fibra - Brainet Staging esperando una s
 
 Webapp, Supervisor, broker, agente y RabbitMQ estaban sanos. Los slots de Electric y ClickHouse seguían activos. RabbitMQ mostró cero mensajes listos o sin confirmar en `deploy_queue` y un consumidor. El agente tenía `TRIGGER_CLI_VERSION=4.5.4`, por lo que sigue pendiente la prueba de publicación con CLI y SDK `4.8.3`. El proxy TCP externo de PostgreSQL seguía detenido.
 
+### Seguimiento del 15 de noviembre
+
+Webapp y Supervisor seguían sanos en `4.8.3`, con los cinco entornos habilitados y ambos slots activos. En las seis horas anteriores a la revisión se observaron **338 runs ordinarios completados correctamente**, sin fallos ni runs en cola en los estados consultados. El `brainet-assistant` del corte terminó correctamente. El `sap-listener` de Orange Staging seguía pendiente con la misma marca de actualización del 23 de julio.
+
+- **Publicación de tareas.** El agente seguía sano con `TRIGGER_CLI_VERSION=4.5.4`. No aparecieron despliegues registrados desde la reapertura. Queda validar la ruta real de publicación y ejecución en Staging con CLI y SDK `4.8.3`.
+- **Limpieza del corte.** Seguían presentes `trigger_eu_search_stage_20261113_111348` y `trigger_eu_search_stage_20261113_111348_retry1`. La segunda tenía una tabla con **546,13 MiB** de partes activas. El volumen temporal de Hetzner seguía montado con el marcador del respaldo verificado. Conserva ese punto de recuperación hasta decidir su retención.
+- **Acceso externo a PostgreSQL.** El proxy de Coolify continuaba detenido. Confirma si algún consumidor necesita recuperar ese acceso antes de reactivarlo.
+
 ## Cronómetro y decisión de ventana
 
 | Tramo | Referencia observada | Medición del corte |
@@ -375,7 +383,7 @@ Webapp, Supervisor, broker, agente y RabbitMQ estaban sanos. Los slots de Electr
 | Drenaje | p95 reciente de runs inferior a 7 s en ambos entornos. Los waits y el backlog antiguos requieren decisión individual. | Hora de cierre, última ejecución iniciada y confirmación de Supervisor drenado. |
 | Capturas | Backup físico PostgreSQL **44 min 14 s** a 20 MiB/s y verificación **5 min 37 s**. Dump diario anterior en unos 10 min y ZIP ClickHouse en unos 3 min. | **17 min 57 s** desde el inicio de la captura hasta verificar los archivos en Hetzner. **27 min 05 s** desde la parada de los escritores. |
 | ClickHouse | Aplicación y comparación del backfill en 4 min 38 s, además de staging, huellas y sondas. | `044` a las 12:50:45 CET, `055` a las 12:57:51 CET y `056` a las 13:26:00 CET. La carga y comparación por día tardaron **4 min 42 s** y la verificación final cerró a las 13:27:41 CET. |
-| Webapp y canarios | Prisma y Drizzle en 7 s sobre copia real. El arranque Coolify, la descarga de imágenes y los canarios de aplicación se miden aparte. | Webapp sana desde el despliegue de las 13:39 CET. Supervisor registrado a las 14:37:43 CET. Queda pendiente la ejecución del canario. |
+| Webapp y canarios | Prisma y Drizzle en 7 s sobre copia real. El arranque Coolify, la descarga de imágenes y los canarios de aplicación se miden aparte. | Webapp sana desde el despliegue de las 13:39 CET. Supervisor registrado a las 14:37:43 CET. Los dos canarios de un despliegue existente completaron entre las 15:19 y las 15:21 CET. |
 | Recuperación | PostgreSQL físico en Tn-Trigger **22 min 13 s** para preparar la copia de trabajo y **703 ms** hasta la primera consulta. Restauración lógica PostgreSQL **1 h 43 min 27 s** en el SSD y ClickHouse **55 s** desde el directorio ya expandido. | Tiempo aprobado para restaurar y reconciliar ambos motores, replicación y auxiliares en el almacenamiento de recuperación. |
 
 Antes de fijar el inicio, acuerda la hora de comienzo y fin, el responsable de rollback y la ruta de recuperación. Calcula el punto de decisión desde el fin de la ventana menos el tiempo de restauración y verificación que se acepte. La duración de las migraciones del clon sirve para planificar el cambio de versión. La capacidad de recuperar el servicio se verifica con el conjunto del corte y la reconciliación posterior.
