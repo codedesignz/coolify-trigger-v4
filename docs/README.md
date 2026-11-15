@@ -1,6 +1,6 @@
 # Operación de TriggerEU Prod
 
-TriggerEU Prod ejecuta Webapp y Supervisor `v4.8.3` desde el 13 de noviembre de 2026, en una sola instancia repartida entre dos servidores gestionados por Coolify. `Tn-Trigger` (`10.21.30.15`) aloja la Webapp y los datos. `Tn-Trigger-Worker1` (`10.21.30.16`) ejecuta el supervisor y los contenedores de tareas. [Validación de la reapertura](ventana-4.8.3.md#validación-de-la-reapertura)
+TriggerEU Prod es una instancia repartida entre dos servidores gestionados por Coolify. `Tn-Trigger` (`10.21.30.15`) aloja la Webapp y los datos. `Tn-Trigger-Worker1` (`10.21.30.16`) ejecuta el supervisor y los contenedores de tareas. Las versiones verificadas se registran en el [inventario de producción](inventario.md).
 
 | Si necesitas… | Abre |
 | --- | --- |

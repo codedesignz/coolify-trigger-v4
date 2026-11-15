@@ -1,6 +1,6 @@
 # Inventario de producción
 
-Inventario verificado por SSH como `root` el 11 de noviembre de 2026. Las secciones de Webapp y Worker recogen también los despliegues del 13 de noviembre. Los nombres de contenedores de aplicaciones pueden incorporar un sufijo nuevo en cada despliegue. Para localizarlos, usa el ID estable del recurso y las etiquetas de Compose.
+Inventario verificado por SSH como `root` el 11 de noviembre de 2026. Las secciones de Webapp y Worker recogen también los despliegues del 13 y 15 de noviembre. Los nombres de contenedores de aplicaciones pueden incorporar un sufijo nuevo en cada despliegue. Para localizarlos, usa el ID estable del recurso y las etiquetas de Compose.
 
 Las imágenes de las tablas son las observadas en producción. Las recetas candidatas del repositorio siguen el [runbook de 4.8.5](ventana-4.8.5.md).
 
@@ -17,7 +17,7 @@ En Coolify, busca el proyecto `teamnet-trigger-eu`, entorno `production`, y el r
 
 | Servicio | Imagen en ejecución | Rol y acceso |
 | --- | --- | --- |
-| `webapp` | `ghcr.io/triggerdotdev/trigger.dev:v4.8.3` | UI, API y recepción de OTLP. Traefik enruta `https://trigger.sidicom.es` a `:3000`. Healthcheck en `/healthcheck`. |
+| `webapp` | `ghcr.io/triggerdotdev/trigger.dev:v4.8.5` | UI, API y recepción de OTLP. Traefik enruta `https://trigger.sidicom.es` a `:3000`. Healthcheck en `/healthcheck`. |
 | `postgres` | `postgres:16-alpine` (`16.16`) | Base transaccional. El stack usa `postgres:5432`. El proxy PostgreSQL de Coolify publica el puerto del host cuando está activo. |
 | `redis` | `redis:7` (`7.4.12`) | Colas y coordinación. Acceso interno `redis:6379`. |
 | `electric` | `electricsql/electric:1.2.4` | Sincronización de datos a partir de PostgreSQL. La Webapp usa `http://electric:3000`. Healthcheck en `/v1/health`. |

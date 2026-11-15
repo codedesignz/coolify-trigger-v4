@@ -56,3 +56,11 @@ El 15 de noviembre se obtuvo un dump de **6,9 GiB** en `/mnt/HC_Volume_107434992
 | `minio.image` | `bitnamilegacy/minio:latest@sha256:451fe6858cb770cc9d0e77ba811ce287420f781c7c1b806a386f6896471a349c` |
 
 Si Webapp no queda sana, detén el avance y comprueba el estado exacto de Prisma y los bloqueos. Conserva las revisiones e imágenes anteriores. Si hubo migraciones, comprueba la compatibilidad del esquema y del estado escrito antes de volver a `4.8.3`. Para una recuperación con el dump, ensaya primero una restauración aislada y reconcilia PostgreSQL con los runs y colas posteriores a la instantánea. [Recuperación y evidencia del corte anterior](ventana-4.8.3.md)
+
+## Validación de Webapp
+
+Webapp `4.8.5` arrancó el 15 de noviembre a las **10:55:29 CET** con el digest previsto, Node.js `24.22.3` y cero reinicios. `/healthcheck` devolvió `200` en local, por HTTPS y desde el Supervisor. Sessions y Realtime devolvieron `401` JSON en las sondas anónimas. Se conservaron `CENTS_PER_RUN=0.03867`, Search v2 y la replicación. Coolify recreó las dependencias con los mismos IDs de imagen observados antes del cambio.
+
+Prisma pasó de **856 a 868** migraciones, sin incompletas ni índices nuevos inválidos. Drizzle conservó 9 migraciones y ClickHouse registró Goose `056` sobre el volumen activo `clickhouse-data-v26-2` con el marcador `fresh`. Los slots de Electric y de runs estaban activos. Tras el arranque se observaron tres runs ordinarios completados. Una muestra coincidió entre PostgreSQL y ClickHouse en estado y coste, con 78 eventos en Search v2.
+
+Supervisor seguía sano en `4.8.3`, con heartbeats y acceso al broker, Docker, registry, S2 y MinIO. La rama `main` que usa el recurso de Worker contiene la receta candidata desde `db8b9c1`. El digest que resuelve `latest` del proxy Docker coincidió con la imagen efectiva antes del siguiente despliegue.
