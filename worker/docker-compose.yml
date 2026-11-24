@@ -21,6 +21,7 @@ services:
       # An empty override would bypass the Supervisor's nullish fallback.
       TRIGGER_WARM_START_DISPATCH_URL: ${TRIGGER_WARM_START_DISPATCH_URL:-${TRIGGER_WARM_START_URL:-}}
       TRIGGER_WARM_START_VERIFY_ENABLED: ${TRIGGER_WARM_START_VERIFY_ENABLED:-false}
+      TRIGGER_WARM_START_VERIFY_DELAY_MS: ${TRIGGER_WARM_START_VERIFY_DELAY_MS:-10000}
 
       DOCKER_HOST: tcp://docker-proxy:2375
       # Official Trigger.dev setting. Each ephemeral run container is created

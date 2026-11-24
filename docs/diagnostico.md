@@ -70,6 +70,15 @@ Si los errores afectan a la capacidad de ejecutar contenedores, revisa el journa
 
 Para investigar un warm start concreto, consulta desde Supervisor `/healthz` y comprueba conexión a Redis, runners idle y el delta de hits, misses y errores de entrega durante el intervalo. Correlaciona deployment, preset y el ID del runner de ambos runs. Si la API del broker está sana y no hay hits, verifica su política de placement tags y el registro del runner idle. En 4.8.3 revisa también `TRIGGER_WARM_START_DISPATCH_URL`. El [plan de actualización](actualizacion-4.8.3.md#recuperación) indica cómo operar temporalmente en cold start.
 
+### Verificación de entrega de warm starts
+
+El Supervisor puede comprobar si un run avanza después de un hit del broker y arrancar un runner en frío si la entrega no se confirma. La verificación viene desactivada y su espera predeterminada es de 10 segundos.
+
+1. En Coolify, abre `teamnet-trigger-eu` → `production` → `trigger-worker1` → **Environment Variables**. Para la prueba define `TRIGGER_WARM_START_VERIFY_ENABLED=true` y `TRIGGER_WARM_START_VERIFY_DELAY_MS=2000`.
+2. Redespliega `trigger-worker1` desde la revisión Git que incluye ambas variables en `worker/docker-compose.yml`. El Supervisor es compartido por los entornos de Trigger.dev `staging` y `production`.
+3. Comprueba que el worker vuelve a estar online y que los logs de arranque incluyen `Warm-start delivery verification enabled` con `delayMs` igual a `2000`. Ejecuta `hello-world` en Fibra Staging para comprobar que sigue completando los runs.
+4. Para revertir la activación, pon `TRIGGER_WARM_START_VERIFY_ENABLED=false` en Coolify y redespliega `trigger-worker1`.
+
 ## Dependencias de Webapp
 
 | Componente | Señal y comprobación inicial |
